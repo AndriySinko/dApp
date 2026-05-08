@@ -1,4 +1,5 @@
 @import url('https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Geist:wght@300;400;500;600;700&family=Geist+Mono:wght@400;500;600&display=swap');
+@import "tailwindcss/utilities";
 
 :root {
   --bg: #0b0b0c;
@@ -212,9 +213,9 @@ a { color: inherit; text-decoration: none; }
   letter-spacing: -0.025em;
 }
 .h-display em { font-style: italic; color: var(--text-2); }
-.h-1 { font-size: 38px; line-height: 1.1; letter-spacing: -0.02em; font-weight: 500; }
-.h-2 { font-size: 24px; line-height: 1.2; letter-spacing: -0.01em; font-weight: 500; }
-.h-3 { font-size: 16px; font-weight: 500; }
+.h-1 { font-size: 38px; line-height: 1.1; letter-spacing: -0.02em; font-weight: 500; height: auto; }
+.h-2 { font-size: 24px; line-height: 1.2; letter-spacing: -0.01em; font-weight: 500; height: auto; }
+.h-3 { font-size: 16px; font-weight: 500; height: auto; }
 
 .stripe-bg {
   background-image: repeating-linear-gradient(
