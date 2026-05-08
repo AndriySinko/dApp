@@ -1,5 +1,5 @@
 "use client";
 
-export function EvidenceUploader({ challengeId }: { challengeId: string }) {
-  return <div>EvidenceUploader</div>;
+export function EvidenceUploader({ challengeId: _ }: { challengeId: string }) {
+  return null;
 }

@@ -1,5 +1,3 @@
-"use client";
-
 export function ChallengeCard({ id }: { id: string }) {
-  return <div>Challenge {id}</div>;
+  return <div className="chip">{id}</div>;
 }

@@ -1,0 +1,142 @@
+import Link from "next/link";
+
+export default function EvidencePage() {
+  return (
+    <div className="container fade-in" style={{ paddingTop: 40, paddingBottom: 80, maxWidth: 1100 }}>
+      <div className="row gap-2 muted" style={{ fontSize: 12, marginBottom: 20, fontFamily: "var(--f-mono)" }}>
+        <Link href="/challenge/C-0140" className="dim">← C-0140</Link>
+        <span className="dim">/</span>
+        <span>evidence · day 13</span>
+      </div>
+
+      <div className="page-head" style={{ paddingTop: 8 }}>
+        <div>
+          <div className="row gap-2" style={{ marginBottom: 14 }}>
+            <span className="tag acc">◈ AI ORACLE</span>
+            <span className="tag">C-0140</span>
+            <span className="status-dot warn"></span>
+            <span className="muted" style={{ fontSize: 12 }}>Today&apos;s nonce expires in 14h 22m</span>
+          </div>
+          <h1 className="serif" style={{ fontSize: 44, fontWeight: 400 }}>Daily gym for 30 days</h1>
+        </div>
+      </div>
+
+      <div style={{ display: "grid", gridTemplateColumns: "1.3fr 1fr", gap: 24 }}>
+        {/* upload area */}
+        <div className="col gap-4">
+          <div className="card" style={{ padding: 28 }}>
+            <div className="row" style={{ justifyContent: "space-between", marginBottom: 16 }}>
+              <div className="eyebrow">Day 13 · today&apos;s nonce</div>
+              <span className="muted" style={{ fontSize: 12 }}>refreshes daily at 00:00 UTC</span>
+            </div>
+            <div style={{
+              padding: "28px 32px",
+              background: "var(--bg)",
+              border: "1px solid var(--acc)",
+              borderRadius: "var(--r-lg)",
+              fontFamily: "var(--f-mono)",
+              fontSize: 32,
+              letterSpacing: "0.04em",
+              color: "var(--acc)",
+              textAlign: "center",
+              boxShadow: "inset 0 0 32px rgba(212,255,61,0.06)",
+            }}>0xa3f2b819</div>
+            <div className="muted" style={{ fontSize: 12.5, marginTop: 14, lineHeight: 1.55 }}>
+              Write this code on paper or display it on a phone in today&apos;s photo.
+              The Gemini Vision oracle will reject any photo where the nonce isn&apos;t clearly visible.
+            </div>
+          </div>
+
+          <div className="card" style={{ padding: 0, overflow: "hidden" }}>
+            <div style={{ padding: "16px 22px", borderBottom: "1px solid var(--line-soft)" }} className="row">
+              <div className="eyebrow flex-1">Submit today&apos;s photo</div>
+              <span className="muted mono" style={{ fontSize: 11 }}>→ ipfs (pinata) → contract.submitEvidence(cid)</span>
+            </div>
+            <div className="stripe-bg" style={{
+              margin: 22, height: 320, borderRadius: "var(--r-lg)",
+              border: "2px dashed var(--line-strong)",
+              display: "grid", placeItems: "center",
+              cursor: "pointer",
+            }}>
+              <div className="col gap-3" style={{ alignItems: "center" }}>
+                <div style={{ fontSize: 40, color: "var(--text-4)" }}>↑</div>
+                <div style={{ fontWeight: 500 }}>Drop photo here or click to upload</div>
+                <div className="muted" style={{ fontSize: 12 }}>JPEG / PNG · max 5MB · nonce 0xa3f2b8… must be visible</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* timeline */}
+        <div className="col gap-4">
+          <div className="card" style={{ padding: 24 }}>
+            <div className="row" style={{ justifyContent: "space-between", marginBottom: 16 }}>
+              <div className="eyebrow">Streak · day 13 of 30</div>
+              <span className="num" style={{ color: "var(--acc)" }}>40%</span>
+            </div>
+            <div className="bar" style={{ marginBottom: 20 }}>
+              <div className="bar-fill" style={{ width: "40%" }}></div>
+            </div>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: 4 }}>
+              {Array.from({ length: 30 }).map((_, i) => {
+                const dayN = i + 1;
+                const submitted = dayN <= 12;
+                const today = dayN === 13;
+                return (
+                  <div key={i} title={`Day ${dayN}`} style={{
+                    aspectRatio: "1",
+                    borderRadius: 4,
+                    background: submitted ? "var(--acc)" : today ? "var(--bg-3)" : "var(--bg-2)",
+                    border: today ? "1px solid var(--acc)" : "1px solid var(--line-soft)",
+                    display: "grid", placeItems: "center",
+                    fontFamily: "var(--f-mono)", fontSize: 9,
+                    color: submitted ? "#0b0b0c" : today ? "var(--acc)" : "var(--text-4)",
+                    fontWeight: 500,
+                  }}>{dayN}</div>
+                );
+              })}
+            </div>
+            <div className="row gap-4" style={{ marginTop: 16, fontSize: 11 }}>
+              <span className="row gap-2"><span style={{ width: 8, height: 8, background: "var(--acc)", display: "inline-block" }}></span> verified</span>
+              <span className="row gap-2"><span style={{ width: 8, height: 8, background: "var(--bg-3)", border: "1px solid var(--acc)", display: "inline-block" }}></span> today</span>
+              <span className="row gap-2"><span style={{ width: 8, height: 8, background: "var(--bg-2)", border: "1px solid var(--line-soft)", display: "inline-block" }}></span> pending</span>
+            </div>
+          </div>
+
+          <div className="card" style={{ padding: 24, fontSize: 13 }}>
+            <div className="eyebrow" style={{ marginBottom: 14 }}>Verdict pipeline</div>
+            <div className="col gap-3">
+              {[
+                ["1.", "Photo uploaded to IPFS via Pinata", "✓"],
+                ["2.", "submitEvidence(cid) tx confirmed", "✓"],
+                ["3.", "Active period ends Dec 19", "—"],
+                ["4.", "Chainlink Functions fetches all 30 photos", "—"],
+                ["5.", "Gemini Vision: criteria + nonce per photo", "—"],
+                ["6.", "Verifier callback → receiveVerdict()", "—"],
+                ["7.", "Settlement: stake back + share of pool", "—"],
+              ].map(([n, l, s], i) => (
+                <div key={i} className="row gap-3">
+                  <span className="dim mono" style={{ width: 18 }}>{n}</span>
+                  <span className="flex-1 muted">{l}</span>
+                  <span style={{ color: s === "✓" ? "var(--win)" : "var(--text-4)" }}>{s}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div className="card" style={{ padding: 20, background: "var(--bg-1)" }}>
+            <div className="row gap-3">
+              <span style={{ color: "var(--warn)" }}>⚠</span>
+              <div className="col gap-2 flex-1">
+                <div style={{ fontWeight: 500, fontSize: 13 }}>Adversarial images disclosed</div>
+                <div className="muted" style={{ fontSize: 12, lineHeight: 1.5 }}>
+                  Generative models can fake photos. AI-verified challenges have a stake cap; treat the AI Oracle as a heuristic, not a proof.
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
