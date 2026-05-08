@@ -1,0 +1,31 @@
+# env
+.env
+.env.local
+.env*.local
+
+# deps
+node_modules/
+
+# Next.js
+.next/
+out/
+
+# Hardhat
+artifacts/
+cache/
+coverage/
+coverage.json
+typechain-types/
+
+# misc
+.DS_Store
+*.log
+CLAUDE.md
+DEFINITIVE_ARCHITECTURE_GUIDE.md
+
+# IDE
+.idea/
+.vscode/
+
+# Claude Code
+.claude/
