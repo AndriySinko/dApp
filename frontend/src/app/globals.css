@@ -21,11 +21,16 @@
   --acc: #d4ff3d;
   --acc-dim: #8aa820;
   --acc-bg: rgba(212,255,61,0.08);
+  --acc-fg: #0b0b0c;
+  --acc-hover: #e2ff5e;
+
   --win: #6dd58a;
   --win-bg: rgba(109,213,138,0.10);
   --loss: #ff6b6b;
   --loss-bg: rgba(255,107,107,0.10);
   --warn: #f5b942;
+
+  --topbar-bg: rgba(11,11,12,0.85);
 
   --r-sm: 4px;
   --r: 8px;
@@ -35,6 +40,38 @@
   --f-sans: 'Geist', ui-sans-serif, system-ui, -apple-system, sans-serif;
   --f-mono: 'Geist Mono', ui-monospace, 'SF Mono', Menlo, monospace;
   --f-serif: 'Instrument Serif', 'Times New Roman', serif;
+}
+
+[data-theme="light"] {
+  --bg: #f7f6f2;
+  --bg-1: #f0efe9;
+  --bg-2: #e7e6df;
+  --bg-3: #dddbd3;
+  --bg-elev: #eae9e2;
+
+  --line: #d0cec6;
+  --line-soft: #dddbd3;
+  --line-strong: #bebcb4;
+
+  --text: #111110;
+  --text-2: #36352f;
+  --text-3: #6e6d67;
+  --text-4: #9e9d97;
+  --text-5: #c4c3bd;
+
+  --acc: #5a7c00;
+  --acc-dim: #3d5800;
+  --acc-bg: rgba(90,124,0,0.08);
+  --acc-fg: #ffffff;
+  --acc-hover: #6a9200;
+
+  --win: #2d8a4e;
+  --win-bg: rgba(45,138,78,0.10);
+  --loss: #c94040;
+  --loss-bg: rgba(201,64,64,0.10);
+  --warn: #b87800;
+
+  --topbar-bg: rgba(247,246,242,0.88);
 }
 
 * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -65,7 +102,7 @@ a { color: inherit; text-decoration: none; }
   gap: 32px;
   padding: 14px 28px;
   border-bottom: 1px solid var(--line-soft);
-  background: rgba(11,11,12,0.85);
+  background: var(--topbar-bg);
   backdrop-filter: blur(20px);
   position: sticky;
   top: 0;
@@ -149,8 +186,8 @@ a { color: inherit; text-decoration: none; }
 }
 .btn:hover { background: var(--bg-3); border-color: var(--line-strong); }
 .btn:active { transform: translateY(1px); }
-.btn.primary { background: var(--acc); color: #0b0b0c; border-color: var(--acc); font-weight: 600; }
-.btn.primary:hover { background: #e2ff5e; border-color: #e2ff5e; }
+.btn.primary { background: var(--acc); color: var(--acc-fg); border-color: var(--acc); font-weight: 600; }
+.btn.primary:hover { background: var(--acc-hover); border-color: var(--acc-hover); }
 .btn.ghost { background: transparent; }
 .btn.danger { background: var(--loss-bg); color: var(--loss); border-color: rgba(255,107,107,0.2); }
 .btn.win { background: var(--win-bg); color: var(--win); border-color: rgba(109,213,138,0.25); }

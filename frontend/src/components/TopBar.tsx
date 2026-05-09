@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { ConnectWallet } from "./ConnectWallet";
+import { ThemeToggle } from "./ThemeToggle";
 
 const NAV = [
   { href: "/",          label: "Home",       exact: true },
@@ -42,6 +43,7 @@ export function TopBar() {
         <div className="row gap-2 muted" style={{ fontSize: 12, fontFamily: "var(--f-mono)" }}>
           <span className="status-dot" /> 0.32 gwei
         </div>
+        <ThemeToggle />
         <ConnectWallet />
       </div>
     </div>
