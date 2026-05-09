@@ -15,7 +15,8 @@ contract Treasury is ITreasury, Ownable {
         _;
     }
 
-    event FeeReceived(address indexed challenge, uint256 amount, uint256 timestamp);
+    event FeeReceived(address indexed source, uint256 amount, uint256 timestamp);
+    event PrizePoolWithdrawn(address indexed recipient, uint256 amount, uint256 newTotal);
     event PrizePoolUpdated(uint256 newTotal);
 
     function authorize(address caller) external onlyOwner {
@@ -44,15 +45,18 @@ contract Treasury is ITreasury, Ownable {
         _prizePool -= amount;
         (bool ok, ) = payable(recipient).call{value: amount}("");
         require(ok, "Transfer failed");
+        emit PrizePoolWithdrawn(recipient, amount, _prizePool);
         emit PrizePoolUpdated(_prizePool);
     }
 
+    // Drains the full contract balance (including any force-sent ETH) to recipient.
     function sweep(address recipient) external onlyOwner {
         require(recipient != address(0), "Zero address");
-        uint256 amount = _prizePool;
+        uint256 amount = address(this).balance;
         _prizePool = 0;
         (bool ok, ) = payable(recipient).call{value: amount}("");
         require(ok, "Transfer failed");
-        emit PrizePoolUpdated(_prizePool);
+        emit PrizePoolWithdrawn(recipient, amount, 0);
+        emit PrizePoolUpdated(0);
     }
 }
