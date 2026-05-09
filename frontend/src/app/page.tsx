@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { Sparkline } from "@/components/ui";
+import { ACTIVITY, LANDING_SPARKLINE } from "@/lib/data";
 
 export default function LandingPage() {
   return (
@@ -10,7 +11,7 @@ export default function LandingPage() {
           <div>
             <div className="row gap-3" style={{ marginBottom: 24 }}>
               <span className="eyebrow">{`{ Sepolia testnet · v0.1.0 }`}</span>
-              <span className="status-dot"></span>
+              <span className="status-dot" />
               <span className="muted" style={{ fontSize: 12 }}>5 live challenges</span>
             </div>
             <h1 className="h-display serif">
@@ -48,7 +49,7 @@ export default function LandingPage() {
                 <div className="row" style={{ justifyContent: "space-between" }}>
                   <span className="dim">buy-in</span><span>0.5 ETH</span>
                 </div>
-                <div className="dots" style={{ margin: "4px 0" }}></div>
+                <div className="dots" style={{ margin: "4px 0" }} />
                 <div className="row" style={{ justifyContent: "space-between" }}>
                   <span className="dim">FOR pool</span>
                   <span style={{ color: "var(--win)" }}>0.78 ETH · 41%</span>
@@ -58,10 +59,10 @@ export default function LandingPage() {
                   <span style={{ color: "var(--loss)" }}>1.12 ETH · 59%</span>
                 </div>
                 <div className="bar split" style={{ marginTop: 4 }}>
-                  <div className="for" style={{ width: "41%" }}></div>
-                  <div className="against" style={{ width: "59%" }}></div>
+                  <div className="for" style={{ width: "41%" }} />
+                  <div className="against" style={{ width: "59%" }} />
                 </div>
-                <div className="dots" style={{ margin: "4px 0" }}></div>
+                <div className="dots" style={{ margin: "4px 0" }} />
                 <div className="row" style={{ justifyContent: "space-between" }}>
                   <span className="dim">implied odds</span><span>2.42× / 1.62×</span>
                 </div>
@@ -128,47 +129,29 @@ export default function LandingPage() {
         </div>
 
         <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 1, background: "var(--line-soft)", border: "1px solid var(--line-soft)", borderRadius: "var(--r-lg)", overflow: "hidden" }}>
-          <div style={{ padding: 32, background: "var(--bg)" }}>
-            <div className="row gap-3" style={{ marginBottom: 20 }}>
-              <span style={{ color: "var(--acc)", fontSize: 28, fontFamily: "var(--f-mono)" }}>◆</span>
-              <span className="mono dim" style={{ fontSize: 11 }}>01</span>
+          {[
+            { icon: "◆", n: "01", label: "On-chain", desc: "Reads ETH/ERC-20 balance at deadline. Fully trustless. Synchronous.", lines: ["read participant.balance", "require ≥ threshold", "sync receiveVerdict()"] },
+            { icon: "◇", n: "02", label: "API Oracle", desc: "Chainlink Functions calls external API (GitHub, Strava, Spotify). Trust the API.", lines: ["_sendRequest(jsSrc, args)", "Functions.makeHttpRequest(api)", "fulfillRequest(reqId, response)", "async receiveVerdict()"] },
+            { icon: "◈", n: "03", label: "AI Oracle", desc: "Photo evidence to IPFS, Gemini Vision classifies. Daily nonce prevents pre-stashing.", lines: ["evidence[ipfsCid] + dailyNonce", "Gemini Vision: criteria + nonce", "all_days_passed ? 1 : 0", "async receiveVerdict()"] },
+          ].map(({ icon, n, label, desc, lines }) => (
+            <div key={n} style={{ padding: 32, background: "var(--bg)" }}>
+              <div className="row gap-3" style={{ marginBottom: 20 }}>
+                <span style={{ color: "var(--acc)", fontSize: 28, fontFamily: "var(--f-mono)" }}>{icon}</span>
+                <span className="mono dim" style={{ fontSize: 11 }}>{n}</span>
+              </div>
+              <div className="h-2 serif" style={{ fontSize: 28, marginBottom: 12 }}>{label}</div>
+              <p className="muted" style={{ fontSize: 13.5, lineHeight: 1.55, marginBottom: 24 }}>{desc}</p>
+              <div style={{ fontFamily: "var(--f-mono)", fontSize: 11, color: "var(--text-4)", lineHeight: 1.7 }}>
+                {lines.map((l, i) => (
+                  <div key={i}>
+                    <span style={{ color: i === lines.length - 1 ? "var(--acc)" : "var(--text-4)" }}>
+                      {i === lines.length - 1 ? "↳" : "→"}
+                    </span>{" "}{l}
+                  </div>
+                ))}
+              </div>
             </div>
-            <div className="h-2 serif" style={{ fontSize: 28, marginBottom: 12 }}>On-chain</div>
-            <p className="muted" style={{ fontSize: 13.5, lineHeight: 1.55, marginBottom: 24 }}>Reads ETH/ERC-20 balance at deadline. Fully trustless. Synchronous.</p>
-            <div style={{ fontFamily: "var(--f-mono)", fontSize: 11, color: "var(--text-4)", lineHeight: 1.7 }}>
-              <div><span className="dim">→</span> read participant.balance</div>
-              <div><span className="dim">→</span> require ≥ threshold</div>
-              <div><span style={{ color: "var(--acc)" }}>↳</span> sync receiveVerdict()</div>
-            </div>
-          </div>
-          <div style={{ padding: 32, background: "var(--bg)" }}>
-            <div className="row gap-3" style={{ marginBottom: 20 }}>
-              <span style={{ color: "var(--acc)", fontSize: 28, fontFamily: "var(--f-mono)" }}>◇</span>
-              <span className="mono dim" style={{ fontSize: 11 }}>02</span>
-            </div>
-            <div className="h-2 serif" style={{ fontSize: 28, marginBottom: 12 }}>API Oracle</div>
-            <p className="muted" style={{ fontSize: 13.5, lineHeight: 1.55, marginBottom: 24 }}>Chainlink Functions calls external API (GitHub, Strava, Spotify). Trust the API.</p>
-            <div style={{ fontFamily: "var(--f-mono)", fontSize: 11, color: "var(--text-4)", lineHeight: 1.7 }}>
-              <div><span className="dim">→</span> _sendRequest(jsSrc, args)</div>
-              <div><span className="dim">→</span> Functions.makeHttpRequest(api)</div>
-              <div><span className="dim">→</span> fulfillRequest(reqId, response)</div>
-              <div><span style={{ color: "var(--acc)" }}>↳</span> async receiveVerdict()</div>
-            </div>
-          </div>
-          <div style={{ padding: 32, background: "var(--bg)" }}>
-            <div className="row gap-3" style={{ marginBottom: 20 }}>
-              <span style={{ color: "var(--acc)", fontSize: 28, fontFamily: "var(--f-mono)" }}>◈</span>
-              <span className="mono dim" style={{ fontSize: 11 }}>03</span>
-            </div>
-            <div className="h-2 serif" style={{ fontSize: 28, marginBottom: 12 }}>AI Oracle</div>
-            <p className="muted" style={{ fontSize: 13.5, lineHeight: 1.55, marginBottom: 24 }}>Photo evidence to IPFS, Gemini Vision classifies. Daily nonce prevents pre-stashing.</p>
-            <div style={{ fontFamily: "var(--f-mono)", fontSize: 11, color: "var(--text-4)", lineHeight: 1.7 }}>
-              <div><span className="dim">→</span> evidence[ipfsCid] + dailyNonce</div>
-              <div><span className="dim">→</span> Gemini Vision: criteria + nonce</div>
-              <div><span className="dim">→</span> all_days_passed ? 1 : 0</div>
-              <div><span style={{ color: "var(--acc)" }}>↳</span> async receiveVerdict()</div>
-            </div>
-          </div>
+          ))}
         </div>
       </section>
 
@@ -187,9 +170,9 @@ export default function LandingPage() {
                 minus a 2% protocol fee.
               </p>
               <div className="col gap-3" style={{ fontFamily: "var(--f-mono)", fontSize: 12.5 }}>
-                <div className="row gap-3"><span className="status-dot"></span>AGAINST pool capped at 5× buy-in</div>
-                <div className="row gap-3"><span className="status-dot"></span>Bet window closes when challenge starts</div>
-                <div className="row gap-3"><span className="status-dot"></span>Reentrancy-guarded settlement</div>
+                <div className="row gap-3"><span className="status-dot" />AGAINST pool capped at 5× buy-in</div>
+                <div className="row gap-3"><span className="status-dot" />Bet window closes when challenge starts</div>
+                <div className="row gap-3"><span className="status-dot" />Reentrancy-guarded settlement</div>
               </div>
               <Link href="/challenge/C-0142" className="btn primary" style={{ marginTop: 32, display: "inline-flex" }}>
                 See live market →
@@ -217,13 +200,13 @@ export default function LandingPage() {
                 </div>
               </div>
               <div className="bar split" style={{ marginBottom: 14 }}>
-                <div className="for" style={{ width: "41%" }}></div>
-                <div className="against" style={{ width: "59%" }}></div>
+                <div className="for" style={{ width: "41%" }} />
+                <div className="against" style={{ width: "59%" }} />
               </div>
               <div style={{ height: 64, marginTop: 12 }}>
-                <Sparkline points={[40, 48, 45, 52, 49, 55, 53, 51, 48, 46, 43, 41]} color="var(--win)" />
+                <Sparkline points={LANDING_SPARKLINE} color="var(--win)" />
               </div>
-              <div className="dots" style={{ margin: "16px 0" }}></div>
+              <div className="dots" style={{ margin: "16px 0" }} />
               <div className="row" style={{ justifyContent: "space-between", fontSize: 12 }}>
                 <span className="muted">Verdict by Dec 4 · 18:00 UTC</span>
                 <span className="mono">Ξ 2.40 total</span>
@@ -237,25 +220,17 @@ export default function LandingPage() {
       <section className="container" style={{ paddingTop: 80, paddingBottom: 100 }}>
         <div className="row" style={{ justifyContent: "space-between", alignItems: "flex-end", marginBottom: 32 }}>
           <div className="row gap-3">
-            <span className="status-dot"></span>
+            <span className="status-dot" />
             <h2 className="h-2">Live activity</h2>
           </div>
           <Link href="/dashboard" className="btn ghost sm">View all →</Link>
         </div>
         <div className="card">
-          {[
-            { t: "2m", actor: "0xb2...4f", action: "bet 0.20 ETH FOR", target: "C-0142" },
-            { t: "12m", actor: "0x4f...91", action: "submitted evidence for day 12", target: "C-0140" },
-            { t: "31m", actor: "0x9e...0c", action: "registered", target: "C-0139" },
-            { t: "47m", actor: "ren.eth", action: "voted (weight ×42)", target: "P-009" },
-            { t: "1h", actor: "0xa1...22", action: "settled — won 0.41 ETH", target: "C-0136" },
-            { t: "2h", actor: "vix.eth", action: "created", target: "C-0141" },
-            { t: "3h", actor: "0x6c...7d", action: "AI verdict received: pass", target: "C-0140" },
-          ].map((a, i, arr) => (
-            <div key={i} className="row" style={{ padding: "14px 20px", borderBottom: i < arr.length - 1 ? "1px solid var(--line-soft)" : "none", justifyContent: "space-between", fontSize: 13 }}>
+          {ACTIVITY.map((a, i) => (
+            <div key={i} className="row" style={{ padding: "14px 20px", borderBottom: i < ACTIVITY.length - 1 ? "1px solid var(--line-soft)" : "none", justifyContent: "space-between", fontSize: 13 }}>
               <div className="row gap-3">
-                <span className="mono dim" style={{ width: 40 }}>−{a.t}</span>
-                <span className="avatar sm"></span>
+                <span className="mono dim" style={{ width: 40 }}>−{a.time}</span>
+                <span className="avatar sm" />
                 <span className="mono" style={{ color: "var(--text-2)" }}>{a.actor}</span>
                 <span className="muted">{a.action}</span>
                 <span className="chip">{a.target}</span>
@@ -269,7 +244,7 @@ export default function LandingPage() {
       <footer style={{ borderTop: "1px solid var(--line-soft)", padding: "40px 0", background: "var(--bg-1)" }}>
         <div className="container row" style={{ justifyContent: "space-between", fontSize: 12 }}>
           <div className="row gap-4">
-            <span className="brand-mark"></span>
+            <span className="brand-mark" />
             <span className="muted">PACT Protocol · Sepolia testnet · academic build</span>
           </div>
           <div className="row gap-4 muted">
