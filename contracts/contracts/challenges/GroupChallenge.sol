@@ -48,7 +48,7 @@ contract GroupChallenge is BaseChallenge {
         for (uint256 i = 0; i < _participants.length; i++) {
             address p = _participants[i];
             IVerifier(verifierAddress).requestVerification(
-                challengeId,
+                address(this),
                 p,
                 abi.encode(criteria, boundAccount[p])
             );

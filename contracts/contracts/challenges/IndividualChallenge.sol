@@ -72,7 +72,7 @@ contract IndividualChallenge is BaseChallenge {
 
     function _onVerifyPending() internal override {
         IVerifier(verifierAddress).requestVerification(
-            challengeId,
+            address(this),
             _creator,
             abi.encode(criteria, boundAccount[_creator])
         );
