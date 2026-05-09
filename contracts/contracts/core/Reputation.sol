@@ -28,7 +28,7 @@ contract Reputation is Ownable, IReputation {
         authorized[caller] = true;
     }
 
-    function deauthorize(address caller) external onlyOwner {
+    function revoke(address caller) external onlyOwner {
         authorized[caller] = false;
     }
 
