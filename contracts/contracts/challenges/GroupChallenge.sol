@@ -21,7 +21,7 @@ contract GroupChallenge is BaseChallenge {
         address vAddress,
         address repAddress,
         address treasAddress
-    ) payable {
+    ) {
         require(buyInAmt > 0,             "Buy-in must be positive");
         require(block.timestamp < joinDl, "Join deadline must be in the future");
         require(joinDl < challengeDl,     "Join deadline must precede challenge deadline");

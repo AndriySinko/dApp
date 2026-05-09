@@ -13,6 +13,11 @@ contract Reputation is Ownable, IReputation {
         _;
     }
 
+    modifier onlyOwnerOrAuthorized() {
+        require(msg.sender == owner() || authorized[msg.sender], "Not permitted");
+        _;
+    }
+
     event ReputationUpdated(
         address indexed user,
         int256  delta,
@@ -23,7 +28,7 @@ contract Reputation is Ownable, IReputation {
 
     constructor(address initialOwner) Ownable(initialOwner) {}
 
-    function authorize(address caller) external onlyOwner {
+    function authorize(address caller) external onlyOwnerOrAuthorized {
         require(caller != address(0), "Zero address");
         authorized[caller] = true;
     }
