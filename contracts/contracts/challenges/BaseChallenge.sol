@@ -2,9 +2,10 @@
 pragma solidity ^0.8.24;
 
 import "../Types.sol";
+import "../interfaces/IChallenge.sol";
 import "@chainlink/contracts/src/v0.8/automation/AutomationCompatible.sol";
 
-abstract contract BaseChallenge is AutomationCompatibleInterface {
+abstract contract BaseChallenge is IChallenge, AutomationCompatibleInterface {
     // immutable config
     uint256 challengeId;
     address _creator;
