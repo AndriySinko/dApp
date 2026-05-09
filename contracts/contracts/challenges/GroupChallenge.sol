@@ -59,7 +59,7 @@ contract GroupChallenge is BaseChallenge {
         require(_state == ChallengeState.JoinOpen, "Challenge not open for joining");
         require(block.timestamp < _joinDeadline, "Join deadline has passed");
         require(!_isRegistered[msg.sender], "Already joined");
-        require(msg.value == _buyIn, "Must send exact buy-in");
+        require(msg.value >= _buyIn, "Must send at least buy-in");
 
         _participants.push(msg.sender);
         _isRegistered[msg.sender] = true;
@@ -68,7 +68,7 @@ contract GroupChallenge is BaseChallenge {
         emit ParticipantRegistered(msg.sender, msg.value, block.timestamp);
     }
 
-    function settle() external virtual override {
+    function settle() public virtual override {
         require(_state == ChallengeState.VerifyPending, "Not ready to settle");
         require(_verdictsCompleted == _participants.length, "Not all verdicts received");
 
@@ -77,6 +77,7 @@ contract GroupChallenge is BaseChallenge {
         uint256 winnersCount;
         uint256 losersCount;
         uint256 totalWinnerStake;
+        uint256 loserPot;
 
         for (uint256 i = 0; i < _participants.length; i++) {
             address p = _participants[i];
@@ -85,23 +86,21 @@ contract GroupChallenge is BaseChallenge {
                 totalWinnerStake += _stakes[p];
             } else {
                 losersCount++;
+                loserPot += _stakes[p];
             }
         }
 
-        uint256 loserPot = _buyIn * losersCount;
-
         // All lose → entire pot → Treasury
         if (winnersCount == 0) {
-            uint256 totalPool = _buyIn * _participants.length;
-            if (totalPool > 0) {
-                ITreasury(treasuryAddress).depositFee{value: totalPool}();
+            if (loserPot > 0) {
+                ITreasury(treasuryAddress).depositFee{value: loserPot}();
             }
             for (uint256 i = 0; i < _participants.length; i++) {
                 address p = _participants[i];
-                emit ParticipantSettled(p, false, 0, -int256(_buyIn));
+                emit ParticipantSettled(p, false, 0, -int256(_stakes[p]));
                 IReputation(reputationAddress).updateRep(p, -50, address(this));
             }
-            emit Settled(0, losersCount, 0, totalPool, block.timestamp);
+            emit Settled(0, losersCount, 0, loserPot, block.timestamp);
             return;
         }
 

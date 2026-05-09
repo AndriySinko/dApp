@@ -111,7 +111,11 @@ contract IndividualChallenge is BaseChallenge {
         emit BetPlaced(msg.sender, side, msg.value, _forPool, _againstPool, block.timestamp);
     }
 
-    function settle() external override {
+    function _readyToSettle() internal override returns (bool) {
+        return _verdictReceived[_creator];
+    }
+
+    function settle() public override {
         require(_state == ChallengeState.VerifyPending, "Not in VerifyPending");
         require(_verdictReceived[_creator], "Creator verdict not received");
 

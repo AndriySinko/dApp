@@ -150,11 +150,19 @@ abstract contract BaseChallenge is IChallenge, AutomationCompatibleInterface {
         _verdictsCompleted++;
 
         emit VerdictReceived(participant, passed, block.timestamp);
+
+        if (_readyToSettle()) {
+            settle();
+        }
     }
 
 
     // SETTLEMENT
-    function settle() external virtual;
+    function settle() public virtual;
+
+    function _readyToSettle() internal virtual returns (bool) {
+        return _verdictsCompleted == _participants.length;
+    }
 
 
     // VIEW FUNCTIONS
