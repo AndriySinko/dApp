@@ -1,32 +1,46 @@
 "use client";
 
-import { useState } from "react";
-import { PROPOSALS, PAST_EPOCHS, MOCK_REPUTATION } from "@/lib/data";
-import { VERIFIER_ICON, VERIFIER_LABEL } from "@/lib/utils";
+import { useAccount } from "wagmi";
+import { PAST_EPOCHS } from "@/lib/data";
+import { VERIFIER_ICON, VERIFIER_LABEL, timeLeft } from "@/lib/utils";
+import { useGovernance, useVote } from "@/lib/hooks/useGovernance";
+import { ADDRESSES } from "@/lib/contracts";
 
 export default function PublicPage() {
-  const [voted, setVoted] = useState<Record<number, boolean>>({});
-  const [votes, setVotes] = useState<Record<number, number>>(
-    Object.fromEntries(PROPOSALS.map(p => [p.index, p.votes]))
-  );
+  const { address } = useAccount();
+  const isDeployed = !!ADDRESSES.governance;
 
-  const totalVotes = PROPOSALS.reduce((sum, p) => sum + (votes[p.index] ?? p.votes), 0);
-  const hasVoted = Object.values(voted).some(Boolean);
+  const {
+    proposals,
+    totalVotes,
+    currentEpoch,
+    epochEnd,
+    prizePerEpoch,
+    hasVoted,
+    voteWeight,
+    isLoading,
+    refetch,
+  } = useGovernance(address);
 
-  const castVote = (idx: number) => {
-    if (hasVoted) return;
-    setVoted(v => ({ ...v, [idx]: true }));
-    setVotes(v => ({ ...v, [idx]: (v[idx] ?? 0) + MOCK_REPUTATION }));
+  const { vote, isPending: isVotePending, isSuccess: isVoteSuccess } = useVote();
+
+  const handleVote = (proposalIndex: number) => {
+    vote(proposalIndex);
+    setTimeout(refetch, 3000);
   };
+
+  // Fall back to mock data if contract not deployed yet
+  if (!isDeployed || (!isLoading && proposals.length === 0)) {
+    return <MockGovernancePage />;
+  }
 
   return (
     <div className="container fade-in" style={{ paddingTop: 40, paddingBottom: 80 }}>
       <div className="page-head">
         <div>
           <div className="row gap-3" style={{ marginBottom: 12 }}>
-            <span className="eyebrow">{`{ governance · epoch #14 }`}</span>
-            <span className="status-dot warn" />
-            <span className="muted" style={{ fontSize: 12 }}>tickEpoch in 2d 14h</span>
+            <span className="eyebrow">{`{ governance · epoch #${currentEpoch ?? "…"} }`}</span>
+            {epochEnd && <><span className="status-dot warn" /><span className="muted" style={{ fontSize: 12 }}>tickEpoch {timeLeft(epochEnd)}</span></>}
           </div>
           <h1 className="serif" style={{ fontSize: 56, fontWeight: 400, letterSpacing: "-0.02em" }}>Vote the next public challenge.</h1>
           <p style={{ marginTop: 14, color: "var(--text-2)", fontSize: 15, maxWidth: 640, lineHeight: 1.55 }}>
@@ -42,7 +56,7 @@ export default function PublicPage() {
           <div style={{ paddingRight: 28, borderRight: "1px solid var(--line-soft)" }}>
             <div className="col gap-2">
               <div className="eyebrow">Active proposals</div>
-              <div className="num-xl">{PROPOSALS.length}</div>
+              <div className="num-xl">{proposals.length}</div>
             </div>
           </div>
           <div style={{ padding: "0 28px", borderRight: "1px solid var(--line-soft)" }}>
@@ -55,14 +69,14 @@ export default function PublicPage() {
           <div style={{ padding: "0 28px", borderRight: "1px solid var(--line-soft)" }}>
             <div className="col gap-2">
               <div className="eyebrow">Your vote weight</div>
-              <div className="num-xl" style={{ color: "var(--acc)" }}>×{MOCK_REPUTATION}</div>
+              <div className="num-xl" style={{ color: "var(--acc)" }}>×{voteWeight ?? 0}</div>
               <div className="muted" style={{ fontSize: 12 }}>from reputation</div>
             </div>
           </div>
           <div style={{ paddingLeft: 28 }}>
             <div className="col gap-2">
               <div className="eyebrow">Prize pool</div>
-              <div className="num-xl" style={{ color: "var(--acc)" }}>Ξ 1.40</div>
+              <div className="num-xl" style={{ color: "var(--acc)" }}>Ξ {(prizePerEpoch ?? 0).toFixed(2)}</div>
               <div className="muted" style={{ fontSize: 12 }}>auto-funds winner</div>
             </div>
           </div>
@@ -75,11 +89,9 @@ export default function PublicPage() {
       </div>
 
       <div className="col gap-3">
-        {PROPOSALS.map((p, idx) => {
-          const voteCount = votes[p.index] ?? p.votes;
-          const pct = totalVotes > 0 ? ((voteCount / totalVotes) * 100).toFixed(1) : "0.0";
-          const isLeading = idx === 0;
-          const didVote = voted[p.index];
+        {proposals.map((p, idx) => {
+          const pct = totalVotes > 0 ? ((p.votes / totalVotes) * 100).toFixed(1) : "0.0";
+          const isLeading = idx === 0 && proposals.length > 1;
 
           return (
             <div key={p.index} className="card" style={{ padding: 24, position: "relative", borderColor: isLeading ? "rgba(212,255,61,0.3)" : undefined }}>
@@ -98,33 +110,38 @@ export default function PublicPage() {
                   </div>
                   <h3 className="serif" style={{ fontSize: 26, fontWeight: 400, lineHeight: 1.2 }}>{p.title}</h3>
                   <p className="muted" style={{ fontSize: 13.5, lineHeight: 1.6, maxWidth: 560 }}>{p.description}</p>
-                  <div className="row gap-3" style={{ fontSize: 12 }}>
-                    <span className="avatar sm" />
-                    <span>proposed by</span>
-                    <span className="mono" style={{ color: "var(--text-2)" }}>admin.pact</span>
-                  </div>
                 </div>
                 <div className="col gap-3">
                   <div className="row" style={{ justifyContent: "space-between" }}>
                     <span className="eyebrow">votes</span>
                     <span className="num" style={{ fontSize: 13 }}>{pct}%</span>
                   </div>
-                  <div className="num-xl">{voteCount.toLocaleString()}</div>
-                  <div className="muted" style={{ fontSize: 11 }}>{p.voters + (didVote ? 1 : 0)} voters</div>
+                  <div className="num-xl">{p.votes.toLocaleString()}</div>
+                  <div className="muted" style={{ fontSize: 11 }}>{p.voters} voters</div>
                   <div className="bar"><div className="bar-fill" style={{ width: `${pct}%` }} /></div>
                   <button
                     className="btn primary"
-                    style={{ marginTop: 8, justifyContent: "center", opacity: hasVoted && !didVote ? 0.4 : 1 }}
-                    onClick={() => castVote(p.index)}
-                    disabled={hasVoted && !didVote}
+                    style={{ marginTop: 8, justifyContent: "center", opacity: (hasVoted && !isVoteSuccess) ? 0.4 : 1 }}
+                    onClick={() => handleVote(p.index)}
+                    disabled={!!hasVoted || isVotePending || !address || (voteWeight ?? 0) === 0}
                   >
-                    {didVote ? `✓ Voted (×${MOCK_REPUTATION})` : `Vote with weight ×${MOCK_REPUTATION}`}
+                    {isVotePending ? "⏳ Waiting…"
+                      : isVoteSuccess ? `✓ Voted`
+                      : hasVoted ? "Already voted"
+                      : !address ? "Connect wallet"
+                      : (voteWeight ?? 0) === 0 ? "No vote weight"
+                      : `Vote with weight ×${voteWeight}`}
                   </button>
                 </div>
               </div>
             </div>
           );
         })}
+        {proposals.length === 0 && !isLoading && (
+          <div className="card" style={{ padding: 40, textAlign: "center", color: "var(--text-4)" }}>
+            No proposals this epoch.
+          </div>
+        )}
       </div>
 
       <div style={{ marginTop: 56 }}>
@@ -133,9 +150,7 @@ export default function PublicPage() {
           <table className="table">
             <thead>
               <tr>
-                <th>epoch</th>
-                <th>winning proposal</th>
-                <th>verifier</th>
+                <th>epoch</th><th>winning proposal</th><th>verifier</th>
                 <th style={{ textAlign: "right" }}>votes</th>
                 <th style={{ textAlign: "right" }}>prize pool</th>
                 <th style={{ textAlign: "right" }}>outcome</th>
@@ -159,6 +174,25 @@ export default function PublicPage() {
               ))}
             </tbody>
           </table>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// Shown when governance contract is not deployed yet
+function MockGovernancePage() {
+  return (
+    <div className="container fade-in" style={{ paddingTop: 40, paddingBottom: 80 }}>
+      <div className="page-head">
+        <div>
+          <div className="eyebrow" style={{ marginBottom: 12 }}>{`{ governance }`}</div>
+          <h1 className="serif" style={{ fontSize: 56, fontWeight: 400, letterSpacing: "-0.02em" }}>Vote the next public challenge.</h1>
+        </div>
+      </div>
+      <div className="card" style={{ padding: 40, textAlign: "center" }}>
+        <div className="muted" style={{ fontSize: 14 }}>
+          Governance contract not deployed yet. Set <span className="chip">NEXT_PUBLIC_GOVERNANCE_ADDRESS</span> after deployment.
         </div>
       </div>
     </div>

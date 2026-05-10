@@ -1,9 +1,11 @@
 "use client";
 
 import { useState } from "react";
+import { parseEther } from "viem";
 import type { Challenge, BetSide } from "@/lib/types";
 import { pct, multiplier, formatEth } from "@/lib/utils";
 import { TxButton } from "./TxButton";
+import { usePlaceBet } from "@/lib/hooks/usePlaceBet";
 
 const PRESETS = [0.05, 0.10, 0.25];
 
@@ -11,7 +13,7 @@ export function BetPanel({ challenge }: { challenge: Challenge }) {
   const [side, setSide] = useState<BetSide>("FOR");
   const [amount, setAmount] = useState("0.10");
 
-  const forPool    = challenge.forPool    ?? 0;
+  const forPool     = challenge.forPool    ?? 0;
   const againstPool = challenge.againstPool ?? 0;
   const total = forPool + againstPool + challenge.buyIn;
   const forMult  = multiplier(forPool,    total);
@@ -24,6 +26,18 @@ export function BetPanel({ challenge }: { challenge: Challenge }) {
   const payout = isNaN(mult) ? 0 : stake * mult;
   const agCap = challenge.buyIn * 5;
   const agUsed = againstPool / agCap;
+
+  const challengeAddress = challenge.address as `0x${string}` | undefined;
+  const { placeBet, isPending, isConfirming, isSuccess, error } = usePlaceBet(challengeAddress);
+
+  const handleBet = () => {
+    if (!challengeAddress) return;
+    const amountWei = parseEther(amount || "0");
+    placeBet(side === "FOR", amountWei);
+  };
+
+  const canBet = challenge.state === "JOIN_OPEN" && !!challengeAddress;
+  const betLabel = `Bet ${formatEth(stake)} ${side}`;
 
   return (
     <>
@@ -75,7 +89,7 @@ export function BetPanel({ challenge }: { challenge: Challenge }) {
               {p}
             </button>
           ))}
-          <button className="btn sm" onClick={() => setAmount("0.50")}>max</button>
+          <button className="btn sm" onClick={() => setAmount(String(agCap))}>max</button>
         </div>
 
         <div className="dots" style={{ marginBottom: 14 }} />
@@ -97,11 +111,22 @@ export function BetPanel({ challenge }: { challenge: Challenge }) {
             <span className="dim">2% of losing pool</span>
           </div>
         </div>
+
+        {error && (
+          <div className="muted" style={{ fontSize: 11, color: "var(--loss)", marginTop: 10, fontFamily: "var(--f-mono)" }}>
+            {(error as Error).message?.slice(0, 80)}
+          </div>
+        )}
+
         <TxButton
-          label={`Bet ${formatEth(stake)} ${side}`}
+          label={canBet ? betLabel : challenge.state === "SETTLED" ? "Challenge settled" : "Betting closed"}
           successLabel="Bet placed!"
           className="btn primary lg"
           style={{ width: "100%", marginTop: 18, justifyContent: "center" }}
+          onSubmit={canBet ? handleBet : undefined}
+          isPending={isPending || isConfirming}
+          isSuccess={isSuccess}
+          disabled={!canBet}
         />
         {side === "AGAINST" && (
           <div className="muted" style={{ fontSize: 11, textAlign: "center", marginTop: 10, fontFamily: "var(--f-mono)" }}>
@@ -113,10 +138,11 @@ export function BetPanel({ challenge }: { challenge: Challenge }) {
       <div className="card" style={{ padding: 20, fontFamily: "var(--f-mono)", fontSize: 11.5 }}>
         <div className="eyebrow" style={{ marginBottom: 12 }}>Contracts</div>
         <div className="col gap-2">
-          <div className="row" style={{ justifyContent: "space-between" }}><span className="dim">challenge</span><span>0xC...0142</span></div>
-          <div className="row" style={{ justifyContent: "space-between" }}><span className="dim">verifier</span><span>0xV...API_</span></div>
-          <div className="row" style={{ justifyContent: "space-between" }}><span className="dim">treasury</span><span>0xT...0002</span></div>
-          <div className="row" style={{ justifyContent: "space-between" }}><span className="dim">factory</span><span>0xF...0001</span></div>
+          <div className="row" style={{ justifyContent: "space-between" }}>
+            <span className="dim">challenge</span>
+            <span>{challengeAddress ? `${challengeAddress.slice(0, 6)}...${challengeAddress.slice(-4)}` : "—"}</span>
+          </div>
+          <div className="row" style={{ justifyContent: "space-between" }}><span className="dim">verifier</span><span>{challenge.verifier}</span></div>
         </div>
       </div>
     </>

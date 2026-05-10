@@ -2,9 +2,12 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { useAccount } from "wagmi";
+import { useCreateChallenge } from "@/lib/hooks/useCreateChallenge";
 import { TxButton } from "@/components/TxButton";
 import type { ChallengeType, VerifierType } from "@/lib/types";
 import { VERIFIER_ICON, VERIFIER_LABEL } from "@/lib/utils";
+import { LINK_UPKEEP_AMOUNT } from "@/lib/contracts";
 
 type Step = 1 | 2 | 3 | 4;
 
@@ -23,16 +26,34 @@ const VERIFIERS: { value: VerifierType; label: string; desc: string }[] = [
 const STEPS = ["Type", "Verification", "Stakes & deadlines", "Review & deploy"];
 
 export default function CreatePage() {
+  const { isConnected } = useAccount();
+  const { deploy, step: txStep, isPending, isSuccess, hasLinkApproval } = useCreateChallenge();
+
   const [step,     setStep]     = useState<Step>(1);
   const [type,     setType]     = useState<ChallengeType>("INDIVIDUAL");
   const [verifier, setVerifier] = useState<VerifierType>("API_ORACLE");
   const [title,    setTitle]    = useState("");
   const [criteria, setCriteria] = useState("");
   const [buyIn,    setBuyIn]    = useState("0.10");
+  const [joinDays, setJoinDays] = useState("2");
   const [duration, setDuration] = useState("7");
 
   const next = () => setStep(s => Math.min(s + 1, 4) as Step);
   const prev = () => setStep(s => Math.max(s - 1, 1) as Step);
+
+  const handleDeploy = () => {
+    const now = Math.floor(Date.now() / 1000);
+    const joinDeadline      = BigInt(now + Number(joinDays) * 86400);
+    const challengeDeadline = BigInt(now + (Number(joinDays) + Number(duration)) * 86400);
+    deploy({ challengeType: type, verifier, title, criteria, joinDeadline, challengeDeadline, buyIn });
+  };
+
+  const deployLabel = !isConnected
+    ? "Connect wallet to deploy"
+    : !hasLinkApproval
+    ? txStep === "approving" ? "Approving LINK…" : "Step 1: Approve 2 LINK →"
+    : txStep === "creating" || txStep === "approved" ? "Deploying…"
+    : "Deploy challenge →";
 
   return (
     <div className="container fade-in" style={{ paddingTop: 40, paddingBottom: 80, maxWidth: 1080 }}>
@@ -139,23 +160,31 @@ export default function CreatePage() {
           <>
             <div className="h-2 serif" style={{ fontSize: 28, marginBottom: 24 }}>Stakes &amp; deadlines</div>
             <div className="col gap-6">
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 20 }}>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 20 }}>
                 <div className="field">
                   <label>Buy-in (ETH)</label>
                   <input className="input" value={buyIn} onChange={e => setBuyIn(e.target.value)} placeholder="0.10" />
-                  <span className="field-hint">Amount you stake on yourself. Lost to bettors if you fail.</span>
+                  <span className="field-hint">{type === "INDIVIDUAL" ? "Your stake — auto-registered as FOR." : "Min stake to join."}</span>
                 </div>
                 <div className="field">
-                  <label>Duration (days)</label>
+                  <label>Join window (days)</label>
+                  <input className="input" value={joinDays} onChange={e => setJoinDays(e.target.value)} placeholder="2" />
+                  <span className="field-hint">Betting/joining closes after this.</span>
+                </div>
+                <div className="field">
+                  <label>Challenge duration (days)</label>
                   <input className="input" value={duration} onChange={e => setDuration(e.target.value)} placeholder="7" />
-                  <span className="field-hint">Deadline = now + duration. Oracle fires at deadline.</span>
+                  <span className="field-hint">Starts when join window closes.</span>
                 </div>
               </div>
               <div className="card" style={{ padding: 20, background: "var(--bg)" }}>
                 <div className="eyebrow" style={{ marginBottom: 12 }}>Fee structure</div>
                 <div className="col gap-2" style={{ fontSize: 13 }}>
                   <div className="row gap-3"><span className="muted">Protocol fee</span><span>2% of losing pool at settlement</span></div>
-                  <div className="row gap-3"><span className="muted">AGAINST cap</span><span>5× buy-in ({(parseFloat(buyIn || "0") * 5).toFixed(2)} ETH)</span></div>
+                  {type === "INDIVIDUAL" && (
+                    <div className="row gap-3"><span className="muted">AGAINST cap</span><span>5× buy-in ({(parseFloat(buyIn || "0") * 5).toFixed(2)} ETH)</span></div>
+                  )}
+                  <div className="row gap-3"><span className="muted">LINK required</span><span>2 LINK (Chainlink Automation deposit)</span></div>
                   <div className="row gap-3"><span className="muted">Oracle gas</span><span>~0.002 ETH est. (Chainlink Functions)</span></div>
                 </div>
               </div>
@@ -168,13 +197,14 @@ export default function CreatePage() {
             <div className="h-2 serif" style={{ fontSize: 28, marginBottom: 24 }}>Review &amp; deploy</div>
             <div className="col gap-3" style={{ marginBottom: 32, fontFamily: "var(--f-mono)", fontSize: 12.5 }}>
               {[
-                ["Type",        type],
-                ["Verifier",    VERIFIER_LABEL[verifier]],
-                ["Title",       title  || "(not set)"],
-                ["Criteria",    criteria || "(not set)"],
-                ["Buy-in",      `${buyIn} ETH`],
-                ["Duration",    `${duration} days`],
-                ["AGAINST cap", `${(parseFloat(buyIn || "0") * 5).toFixed(2)} ETH`],
+                ["Type",             type],
+                ["Verifier",         VERIFIER_LABEL[verifier]],
+                ["Title",            title    || "(not set)"],
+                ["Criteria",         criteria || "(not set)"],
+                ["Buy-in",           `${buyIn} ETH`],
+                ["Join window",      `${joinDays} days`],
+                ["Challenge period", `${duration} days`],
+                ...(type === "INDIVIDUAL" ? [["AGAINST cap", `${(parseFloat(buyIn || "0") * 5).toFixed(2)} ETH`]] : []),
               ].map(([k, v]) => (
                 <div key={k} className="row" style={{ justifyContent: "space-between", padding: "12px 0", borderBottom: "1px solid var(--line-soft)" }}>
                   <span className="dim">{k}</span>
@@ -182,14 +212,29 @@ export default function CreatePage() {
                 </div>
               ))}
             </div>
+
+            {!hasLinkApproval && (
+              <div className="card" style={{ padding: 16, marginBottom: 16, background: "var(--bg)", fontSize: 13 }}>
+                <div className="eyebrow" style={{ marginBottom: 8 }}>Two-step deploy</div>
+                <div className="col gap-2 muted">
+                  <div>1. Approve 2 LINK → factory ({(Number(LINK_UPKEEP_AMOUNT) / 1e18).toFixed(0)} LINK for Automation upkeep)</div>
+                  <div>2. Call factory.createChallenge() — your buy-in sent as ETH</div>
+                </div>
+              </div>
+            )}
+
             <TxButton
-              label="Deploy challenge →"
+              label={deployLabel}
               successLabel="Challenge deployed!"
               className="btn primary lg"
               style={{ justifyContent: "center" }}
+              onSubmit={isConnected ? handleDeploy : undefined}
+              isPending={isPending}
+              isSuccess={isSuccess}
+              disabled={!isConnected || !title || !criteria}
             />
             <div className="muted" style={{ fontSize: 12, marginTop: 12 }}>
-              Deploying calls <span className="chip">factory.createChallenge()</span> — one tx, gas est. ~0.006 ETH.
+              Deploying calls <span className="chip">factory.createChallenge()</span> — gas est. ~0.006 ETH.
             </div>
           </>
         )}
