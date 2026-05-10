@@ -1,0 +1,4 @@
+lib/
+builds/
+node_modules/
+.env

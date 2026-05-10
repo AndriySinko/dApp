@@ -94,4 +94,5 @@ type FactoryActivity @entity {
   activityType: String!
   amount: BigInt!
   timestamp: DateTime!
+  txHash: String!
 }
