@@ -1,0 +1,97 @@
+enum ChallengeType {
+  INDIVIDUAL
+  GROUP
+  PUBLIC
+}
+
+enum VerifierType {
+  ON_CHAIN
+  API_ORACLE
+  AI_ORACLE
+}
+
+enum ChallengeState {
+  JOIN_OPEN
+  ACTIVE
+  VERIFY_PENDING
+  SETTLED
+}
+
+type Challenge @entity {
+  id: ID!                      # challenge contract address
+  challengeId: BigInt!         # factory-assigned numeric id
+  type: ChallengeType!
+  verifier: VerifierType!
+  state: ChallengeState!
+  creator: String!
+  title: String!
+  criteria: String!
+  buyIn: BigInt!
+  joinDeadline: BigInt!
+  challengeDeadline: BigInt!
+  createdAt: DateTime!
+  createdTxHash: String!
+
+  # Individual pools (null for GROUP / PUBLIC)
+  forPool: BigInt
+  againstPool: BigInt
+  bettorsFor: Int
+  bettorsAgainst: Int
+
+  bets: [Bet!]! @derivedFrom(field: "challenge")
+  participants: [Participant!]! @derivedFrom(field: "challenge")
+}
+
+type Bet @entity {
+  id: ID!                      # txHash-logIndex
+  challenge: Challenge!
+  bettor: String!
+  side: Boolean!               # true = FOR, false = AGAINST
+  amount: BigInt!
+  timestamp: DateTime!
+  txHash: String!
+}
+
+type Participant @entity {
+  id: ID!                      # challengeAddress-participantAddress
+  challenge: Challenge!
+  participant: String!
+  stake: BigInt!
+  joinedAt: DateTime!
+  verdict: Boolean
+  payout: BigInt
+  pnl: BigInt
+}
+
+type ReputationUpdate @entity {
+  id: ID!
+  user: String!
+  delta: BigInt!
+  newScore: BigInt!
+  challenge: String!
+  timestamp: DateTime!
+}
+
+type UserReputation @entity {
+  id: ID!                      # user address
+  score: BigInt!
+  lastUpdated: DateTime!
+}
+
+type EpochResult @entity {
+  id: ID!                      # epoch number
+  epoch: BigInt!
+  winningTitle: String!
+  publicChallengeAddress: String!
+  prizePool: BigInt!
+  timestamp: DateTime!
+}
+
+type FactoryActivity @entity {
+  id: ID!
+  user: String!
+  challenge: String!
+  activityType: String!
+  amount: BigInt!
+  timestamp: DateTime!
+}

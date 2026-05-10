@@ -1,0 +1,25 @@
+{
+  "name": "pact-squid",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "build": "tsc",
+    "db:migrate": "squid-typeorm-migration apply",
+    "codegen": "squid-typeorm-codegen",
+    "process": "node lib/processor.js",
+    "serve": "squid-graphql-server"
+  },
+  "dependencies": {
+    "@subsquid/evm-processor": "^1",
+    "@subsquid/typeorm-store": "^1",
+    "@subsquid/graphql-server": "^4",
+    "@subsquid/typeorm-migration": "^1",
+    "@subsquid/typeorm-codegen": "^1",
+    "typeorm": "^0.3",
+    "pg": "^8"
+  },
+  "devDependencies": {
+    "typescript": "^5",
+    "@types/node": "^20"
+  }
+}

@@ -1,0 +1,21 @@
+manifest_version: subsquid.io/v0.1
+
+name: pact-squid
+version: 1
+description: "PACT protocol indexer — challenges, bets, reputation, governance"
+
+build:
+
+deploy:
+  addons:
+    postgres:
+  processor:
+    cmd:
+      - node
+      - lib/processor.js
+
+scale:
+  addons:
+    postgres:
+      storage: 10G
+      profile: medium
