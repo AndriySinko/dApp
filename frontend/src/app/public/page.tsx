@@ -5,18 +5,18 @@ import { PROPOSALS, PAST_EPOCHS, MOCK_REPUTATION } from "@/lib/data";
 import { VERIFIER_ICON, VERIFIER_LABEL } from "@/lib/utils";
 
 export default function PublicPage() {
-  const [voted, setVoted] = useState<Record<string, boolean>>({});
-  const [votes, setVotes] = useState<Record<string, number>>(
-    Object.fromEntries(PROPOSALS.map(p => [p.id, p.votes]))
+  const [voted, setVoted] = useState<Record<number, boolean>>({});
+  const [votes, setVotes] = useState<Record<number, number>>(
+    Object.fromEntries(PROPOSALS.map(p => [p.index, p.votes]))
   );
 
-  const totalVotes = PROPOSALS.reduce((sum, p) => sum + (votes[p.id] ?? p.votes), 0);
+  const totalVotes = PROPOSALS.reduce((sum, p) => sum + (votes[p.index] ?? p.votes), 0);
   const hasVoted = Object.values(voted).some(Boolean);
 
-  const castVote = (id: string) => {
+  const castVote = (idx: number) => {
     if (hasVoted) return;
-    setVoted(v => ({ ...v, [id]: true }));
-    setVotes(v => ({ ...v, [id]: (v[id] ?? 0) + MOCK_REPUTATION }));
+    setVoted(v => ({ ...v, [idx]: true }));
+    setVotes(v => ({ ...v, [idx]: (v[idx] ?? 0) + MOCK_REPUTATION }));
   };
 
   return (
@@ -76,23 +76,24 @@ export default function PublicPage() {
 
       <div className="col gap-3">
         {PROPOSALS.map((p, idx) => {
-          const voteCount = votes[p.id] ?? p.votes;
+          const voteCount = votes[p.index] ?? p.votes;
           const pct = totalVotes > 0 ? ((voteCount / totalVotes) * 100).toFixed(1) : "0.0";
           const isLeading = idx === 0;
-          const didVote = voted[p.id];
+          const didVote = voted[p.index];
 
           return (
-            <div key={p.id} className="card" style={{ padding: 24, position: "relative", borderColor: isLeading ? "rgba(212,255,61,0.3)" : undefined }}>
+            <div key={p.index} className="card" style={{ padding: 24, position: "relative", borderColor: isLeading ? "rgba(212,255,61,0.3)" : undefined }}>
               {isLeading && <div className="tag acc" style={{ position: "absolute", top: -10, left: 24 }}>● Leading</div>}
               <div style={{ display: "grid", gridTemplateColumns: "1fr 280px", gap: 32, alignItems: "start" }}>
                 <div className="col gap-3">
                   <div className="row gap-3" style={{ flexWrap: "wrap" }}>
-                    <span className="tag">{p.id}</span>
+                    <span className="tag">P-{String(p.index).padStart(3, "0")}</span>
                     <span className="tag" style={{ color: "var(--text-2)" }}>
                       <span style={{ color: "var(--acc)" }}>{VERIFIER_ICON[p.verifier]}</span>{" "}
                       {VERIFIER_LABEL[p.verifier]}
                     </span>
                     <span className="tag">{p.durationDays} days</span>
+                    <span className="tag">{p.joinDays}d join window</span>
                     <span className="tag">min Ξ {p.minStake.toFixed(2)}</span>
                   </div>
                   <h3 className="serif" style={{ fontSize: 26, fontWeight: 400, lineHeight: 1.2 }}>{p.title}</h3>
@@ -114,7 +115,7 @@ export default function PublicPage() {
                   <button
                     className="btn primary"
                     style={{ marginTop: 8, justifyContent: "center", opacity: hasVoted && !didVote ? 0.4 : 1 }}
-                    onClick={() => castVote(p.id)}
+                    onClick={() => castVote(p.index)}
                     disabled={hasVoted && !didVote}
                   >
                     {didVote ? `✓ Voted (×${MOCK_REPUTATION})` : `Vote with weight ×${MOCK_REPUTATION}`}

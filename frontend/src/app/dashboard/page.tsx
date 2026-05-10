@@ -9,7 +9,7 @@ import type { ChallengeState, ChallengeType } from "@/lib/types";
 type StateFilter = "All" | "Live" | "Settled";
 type TypeFilter  = "Any type" | ChallengeType;
 
-const LIVE_STATES: ChallengeState[] = ["BET_OPEN", "ACTIVE", "STAKE_LOCK", "JOIN_OPEN"];
+const LIVE_STATES: ChallengeState[] = ["JOIN_OPEN", "ACTIVE", "VERIFY_PENDING"];
 
 export default function DashboardPage() {
   const [stateFilter, setStateFilter] = useState<StateFilter>("All");

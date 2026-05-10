@@ -11,17 +11,19 @@ export function BetPanel({ challenge }: { challenge: Challenge }) {
   const [side, setSide] = useState<BetSide>("FOR");
   const [amount, setAmount] = useState("0.10");
 
-  const total = challenge.forPool + challenge.againstPool + challenge.buyIn;
-  const forMult  = multiplier(challenge.forPool,     total);
-  const agMult   = multiplier(challenge.againstPool, total);
-  const forPct   = pct(challenge.forPool, challenge.againstPool);
+  const forPool    = challenge.forPool    ?? 0;
+  const againstPool = challenge.againstPool ?? 0;
+  const total = forPool + againstPool + challenge.buyIn;
+  const forMult  = multiplier(forPool,    total);
+  const agMult   = multiplier(againstPool, total);
+  const forPct   = pct(forPool, againstPool);
   const agPct    = 100 - forPct;
 
   const mult = side === "FOR" ? parseFloat(forMult) : parseFloat(agMult);
   const stake = parseFloat(amount) || 0;
   const payout = isNaN(mult) ? 0 : stake * mult;
   const agCap = challenge.buyIn * 5;
-  const agUsed = challenge.againstPool / agCap;
+  const agUsed = againstPool / agCap;
 
   return (
     <>

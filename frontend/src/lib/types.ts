@@ -1,10 +1,28 @@
 export type ChallengeType = "INDIVIDUAL" | "GROUP" | "PUBLIC";
 export type VerifierType = "ON_CHAIN" | "API_ORACLE" | "AI_ORACLE";
-export type ChallengeState = "BET_OPEN" | "ACTIVE" | "STAKE_LOCK" | "JOIN_OPEN" | "SETTLED";
+export type ChallengeState = "JOIN_OPEN" | "ACTIVE" | "VERIFY_PENDING" | "SETTLED";
 export type BetSide = "FOR" | "AGAINST";
+
+// On-chain enum index ↔ TS type
+export const CHALLENGE_TYPE_NUM: Record<ChallengeType, number> = {
+  INDIVIDUAL: 0, GROUP: 1, PUBLIC: 2,
+};
+export const VERIFIER_TYPE_NUM: Record<VerifierType, number> = {
+  ON_CHAIN: 0, API_ORACLE: 1, AI_ORACLE: 2,
+};
+export const CHALLENGE_STATE_FROM_NUM: Record<number, ChallengeState> = {
+  0: "JOIN_OPEN", 1: "ACTIVE", 2: "VERIFY_PENDING", 3: "SETTLED",
+};
+export const CHALLENGE_TYPE_FROM_NUM: Record<number, ChallengeType> = {
+  0: "INDIVIDUAL", 1: "GROUP", 2: "PUBLIC",
+};
+export const VERIFIER_TYPE_FROM_NUM: Record<number, VerifierType> = {
+  0: "ON_CHAIN", 1: "API_ORACLE", 2: "AI_ORACLE",
+};
 
 export interface Challenge {
   id: string;
+  address?: string;
   title: string;
   type: ChallengeType;
   verifier: VerifierType;
@@ -12,15 +30,19 @@ export interface Challenge {
   creator: string;
   creatorAddress: string;
   buyIn: number;
-  deadline: Date;
-  forPool: number;
-  againstPool: number;
-  bettorsFor: number;
-  bettorsAgainst: number;
+  joinDeadline: Date;
+  challengeDeadline: Date;
+  // Individual challenges only
+  forPool?: number;
+  againstPool?: number;
+  bettorsFor?: number;
+  bettorsAgainst?: number;
+  // Group / Public
   participants?: number;
   totalDays?: number;
   daysComplete?: number;
   description?: string;
+  criteria?: string;
 }
 
 export interface Bet {
@@ -62,15 +84,15 @@ export interface LeaderboardEntry {
 }
 
 export interface Proposal {
-  id: string;
+  index: number;
   title: string;
   description: string;
   verifier: VerifierType;
   durationDays: number;
+  joinDays: number;
   minStake: number;
   votes: number;
   voters: number;
-  votePct: number;
 }
 
 export interface EpochEntry {

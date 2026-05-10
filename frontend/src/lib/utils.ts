@@ -13,18 +13,16 @@ export const VERIFIER_LABEL: Record<VerifierType, string> = {
 };
 
 export const STATE_LABEL: Record<ChallengeState, string> = {
-  BET_OPEN: "Bet Open",
-  ACTIVE: "Active",
-  STAKE_LOCK: "Stake Lock",
   JOIN_OPEN: "Join Open",
+  ACTIVE: "Active",
+  VERIFY_PENDING: "Verifying",
   SETTLED: "Settled",
 };
 
 export const STATE_CLASS: Record<ChallengeState, string> = {
-  BET_OPEN: "tag acc",
-  ACTIVE: "tag acc",
-  STAKE_LOCK: "tag warn",
   JOIN_OPEN: "tag acc",
+  ACTIVE: "tag acc",
+  VERIFY_PENDING: "tag warn",
   SETTLED: "tag",
 };
 
@@ -62,4 +60,16 @@ export function timeLeft(deadline: Date): string {
 
 export function shortTx(hash: string): string {
   return hash.slice(0, 6) + "..." + hash.slice(-4);
+}
+
+export function weiToEth(wei: bigint): number {
+  return Number(wei) / 1e18;
+}
+
+export function ethToWei(eth: number): bigint {
+  return BigInt(Math.round(eth * 1e18));
+}
+
+export function formatAddress(addr: string): string {
+  return addr.slice(0, 6) + "..." + addr.slice(-4);
 }

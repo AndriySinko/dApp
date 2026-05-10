@@ -18,8 +18,10 @@ export default function ChallengePage() {
 
   const challenge = CHALLENGES.find(c => c.id === id) ?? CHALLENGES[0];
   const bets = BETS.filter(b => b.challengeId === challenge.id);
-  const total = challenge.forPool + challenge.againstPool + challenge.buyIn;
-  const forP  = pct(challenge.forPool, challenge.againstPool);
+  const forPool    = challenge.forPool    ?? 0;
+  const againstPool = challenge.againstPool ?? 0;
+  const total = forPool + againstPool + challenge.buyIn;
+  const forP  = pct(forPool, againstPool);
   const agP   = 100 - forP;
 
   return (
@@ -50,7 +52,7 @@ export default function ChallengePage() {
             <span className="dim">·</span>
             <span className="chip">{challenge.creatorAddress.slice(0, 6)}...{challenge.creatorAddress.slice(-4)}</span>
             <span className="dim">·</span>
-            <span className="muted">{timeLeft(challenge.deadline)}</span>
+            <span className="muted">{timeLeft(challenge.challengeDeadline)}</span>
           </div>
         </div>
         <div className="row gap-2">
@@ -71,19 +73,19 @@ export default function ChallengePage() {
                   <span className="muted">FOR</span>
                 </div>
                 <div className="muted" style={{ fontSize: 13 }}>
-                  {challenge.bettorsFor} bettors backing · {challenge.bettorsAgainst} fading
+                  {challenge.bettorsFor ?? 0} bettors backing · {challenge.bettorsAgainst ?? 0} fading
                 </div>
               </div>
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 1, background: "var(--line-soft)", border: "1px solid var(--line-soft)", borderRadius: "var(--r)", overflow: "hidden", minWidth: 280 }}>
                 <div style={{ padding: 14, background: "var(--bg)" }}>
                   <div className="eyebrow" style={{ color: "var(--win)" }}>FOR</div>
-                  <div className="num-lg" style={{ marginTop: 4 }}>{formatEth(challenge.forPool)}</div>
-                  <div className="dim" style={{ fontSize: 11, marginTop: 2 }}>{multiplier(challenge.forPool, total)} payout</div>
+                  <div className="num-lg" style={{ marginTop: 4 }}>{formatEth(forPool)}</div>
+                  <div className="dim" style={{ fontSize: 11, marginTop: 2 }}>{multiplier(forPool, total)} payout</div>
                 </div>
                 <div style={{ padding: 14, background: "var(--bg)" }}>
                   <div className="eyebrow" style={{ color: "var(--loss)" }}>AGAINST</div>
-                  <div className="num-lg" style={{ marginTop: 4 }}>{formatEth(challenge.againstPool)}</div>
-                  <div className="dim" style={{ fontSize: 11, marginTop: 2 }}>{multiplier(challenge.againstPool, total)} payout</div>
+                  <div className="num-lg" style={{ marginTop: 4 }}>{formatEth(againstPool)}</div>
+                  <div className="dim" style={{ fontSize: 11, marginTop: 2 }}>{multiplier(againstPool, total)} payout</div>
                 </div>
               </div>
             </div>
@@ -158,7 +160,8 @@ export default function ChallengePage() {
                 <div className="divider" />
                 <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 20 }}>
                   <div className="col gap-2"><div className="eyebrow">Buy-in</div><div className="num-lg">{formatEth(challenge.buyIn)}</div></div>
-                  <div className="col gap-2"><div className="eyebrow">Deadline</div><div className="num" style={{ fontSize: 14 }}>{challenge.deadline.toUTCString().slice(0, 22)}</div></div>
+                  <div className="col gap-2"><div className="eyebrow">Join deadline</div><div className="num" style={{ fontSize: 14 }}>{challenge.joinDeadline.toUTCString().slice(0, 22)}</div></div>
+                  <div className="col gap-2"><div className="eyebrow">Challenge deadline</div><div className="num" style={{ fontSize: 14 }}>{challenge.challengeDeadline.toUTCString().slice(0, 22)}</div></div>
                   <div className="col gap-2"><div className="eyebrow">Type</div><span className="tag">{TYPE_LABEL[challenge.type]}</span></div>
                   <div className="col gap-2"><div className="eyebrow">Creator</div><div className="mono" style={{ fontSize: 12 }}>{challenge.creator}</div></div>
                 </div>
