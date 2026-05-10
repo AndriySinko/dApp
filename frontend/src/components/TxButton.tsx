@@ -2,38 +2,64 @@
 
 import { useState } from "react";
 
-type TxState = "idle" | "loading" | "success" | "error";
-
 interface TxButtonProps {
   label: string;
   successLabel?: string;
   className?: string;
   style?: React.CSSProperties;
+  // If provided, real wagmi state is used instead of mock simulation
+  onSubmit?: () => void;
+  isPending?: boolean;
+  isSuccess?: boolean;
+  isError?: boolean;
+  disabled?: boolean;
   onSuccess?: () => void;
 }
 
-export function TxButton({ label, successLabel = "Done!", className = "btn primary", style, onSuccess }: TxButtonProps) {
-  const [state, setState] = useState<TxState>("idle");
+export function TxButton({
+  label,
+  successLabel = "Done!",
+  className = "btn primary",
+  style,
+  onSubmit,
+  isPending,
+  isSuccess,
+  isError,
+  disabled,
+  onSuccess,
+}: TxButtonProps) {
+  const [mockState, setMockState] = useState<"idle" | "loading" | "success" | "error">("idle");
+
+  const isReal = onSubmit !== undefined && (isPending !== undefined || isSuccess !== undefined);
 
   const handleClick = () => {
-    setState("loading");
+    if (isReal) {
+      onSubmit?.();
+      return;
+    }
+    // Mock simulation for dev / unconnected state
+    setMockState("loading");
     setTimeout(() => {
-      setState("success");
+      setMockState("success");
       onSuccess?.();
-      setTimeout(() => setState("idle"), 2500);
+      setTimeout(() => setMockState("idle"), 2500);
     }, 1500);
   };
 
-  const disabled = state === "loading" || state === "success";
+  const effectivePending = isReal ? isPending  : mockState === "loading";
+  const effectiveSuccess = isReal ? isSuccess  : mockState === "success";
+  const effectiveError   = isReal ? isError    : mockState === "error";
+
+  const isDisabled = disabled || effectivePending || effectiveSuccess;
 
   const display =
-    state === "loading" ? "⏳ Waiting for wallet…" :
-    state === "success"  ? `✓ ${successLabel}`      :
-    state === "error"    ? "✗ Failed — retry"        :
+    effectivePending ? "⏳ Waiting for wallet…" :
+    effectiveSuccess  ? `✓ ${successLabel}`       :
+    effectiveError    ? "✗ Failed — retry"         :
     label;
 
   return (
-    <button className={className} style={style} onClick={handleClick} disabled={disabled}>
+    <button className={className} style={style} onClick={handleClick} disabled={isDisabled}>
       {display}
     </button>
   );
