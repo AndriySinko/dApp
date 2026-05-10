@@ -51,6 +51,11 @@ contract AiOracleVerifier is IVerifier, FunctionsClient, Ownable {
     uint64  public subscriptionId;
     bytes32 public donId;
 
+    // DON-hosted secrets slot uploaded via uploadSecrets.ts.
+    // Both must be set before any verification request is dispatched.
+    uint8  public secretsSlotId;
+    uint64 public secretsVersion;
+
     event VerificationRequested(
         address indexed challengeAddress,
         address indexed participant,
@@ -99,6 +104,12 @@ contract AiOracleVerifier is IVerifier, FunctionsClient, Ownable {
         donId = _donId;
     }
 
+    // Call once after uploadSecrets.ts prints the slot version.
+    function setSecretsReference(uint8 _slotId, uint64 _version) external onlyOwner {
+        secretsSlotId   = _slotId;
+        secretsVersion  = _version;
+    }
+
     // ── IVerifier ─────────────────────────────────────────────────────────────
 
     // Called by the challenge during _onVerifyPending.
@@ -112,6 +123,7 @@ contract AiOracleVerifier is IVerifier, FunctionsClient, Ownable {
         require(msg.sender == challengeAddress,                        "Caller must be the challenge contract");
         require(!_pendingVerifications[challengeAddress][participant],  "Verification already pending");
         require(bytes(jsSource).length > 0,                           "JS source not configured");
+        require(secretsVersion > 0,                                   "Secrets not configured");
 
         _pendingVerifications[challengeAddress][participant] = true;
         _storedParams[challengeAddress][participant]         = params;
@@ -157,6 +169,7 @@ contract AiOracleVerifier is IVerifier, FunctionsClient, Ownable {
 
         FunctionsRequest.Request memory req;
         req.initializeRequestForInlineJavaScript(jsSource);
+        req.addDONHostedSecrets(secretsSlotId, secretsVersion);
         req.setArgs(args);
 
         requestId = _sendRequest(req.encodeCBOR(), subscriptionId, CALLBACK_GAS_LIMIT, donId);
