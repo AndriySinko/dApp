@@ -10,6 +10,10 @@ import {
     MockERC20__factory,
     MockAutomationRegistrar__factory,
     MockFactory__factory,
+    MockChallenge__factory,
+    MockFunctionsRouter__factory,
+    MockERC20Balance__factory,
+    MockERC721__factory,
     Reputation__factory,
     Treasury__factory,
     IndividualChallengeDeployer__factory,
@@ -17,6 +21,9 @@ import {
     PublicChallengeDeployer__factory,
     ChallengeFactory__factory,
     PublicGovernance__factory,
+    OnChainVerifier__factory,
+    ApiOracleVerifier__factory,
+    AiOracleVerifier__factory,
 } from "../../typechain-types";
 
 export const ONE_ETH = ethers.parseEther("1");
@@ -218,4 +225,37 @@ export async function advanceToVerifyPending(
     await challenge.performUpkeep("0x");
     await time.increaseTo(challengeDl);
     await challenge.performUpkeep("0x");
+}
+
+// ── Verifier fixtures ─────────────────────────────────────────────────────────
+
+export async function onChainVerifierFixture() {
+    const [owner, alice, bob] = await ethers.getSigners();
+    const verifier  = await new OnChainVerifier__factory(owner).deploy();
+    const challenge = await new MockChallenge__factory(owner).deploy(0, 9_999_999_999);
+    const erc20     = await new MockERC20Balance__factory(owner).deploy();
+    const erc721    = await new MockERC721__factory(owner).deploy();
+    return { owner, alice, bob, verifier, challenge, erc20, erc721 };
+}
+
+export async function apiOracleVerifierFixture() {
+    const [owner, alice, bob] = await ethers.getSigners();
+    const router   = await new MockFunctionsRouter__factory(owner).deploy();
+    const verifier = await new ApiOracleVerifier__factory(owner).deploy(
+        await router.getAddress(), owner.address, 1n, ethers.ZeroHash,
+    );
+    const challenge = await new MockChallenge__factory(owner).deploy(0, 9_999_999_999);
+    return { owner, alice, bob, verifier, router, challenge };
+}
+
+export async function aiOracleVerifierFixture() {
+    const [owner, alice, bob] = await ethers.getSigners();
+    const now      = await time.latest();
+    const router   = await new MockFunctionsRouter__factory(owner).deploy();
+    const verifier = await new AiOracleVerifier__factory(owner).deploy(
+        await router.getAddress(), owner.address, 1n, ethers.ZeroHash,
+    );
+    // joinDeadline = now, challengeDeadline = now + 30 days
+    const challenge = await new MockChallenge__factory(owner).deploy(now, now + 30 * 86_400);
+    return { owner, alice, bob, verifier, router, challenge };
 }
