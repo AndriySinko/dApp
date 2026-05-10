@@ -1,6 +1,7 @@
 import { expect } from "chai";
 import { ethers } from "hardhat";
 import { loadFixture, time } from "@nomicfoundation/hardhat-network-helpers";
+import { IndividualChallenge__factory } from "../../typechain-types";
 import {
     individualFixture,
     advanceToActive,
@@ -40,7 +41,7 @@ describe("IndividualChallenge", () => {
         it("reverts when buy-in is zero", async () => {
             const { owner, verifier, reputation, treasury } = await loadFixture(individualFixture);
             const now = await time.latest();
-            const IC = await ethers.getContractFactory("IndividualChallenge");
+            const IC = new IndividualChallenge__factory(owner);
             await expect(IC.deploy(
                 1n, owner.address, "T", "C",
                 now + JOIN_WINDOW, now + ACTIVE_WINDOW,
@@ -54,7 +55,7 @@ describe("IndividualChallenge", () => {
         it("reverts when msg.value != buyIn", async () => {
             const { owner, verifier, reputation, treasury } = await loadFixture(individualFixture);
             const now = await time.latest();
-            const IC = await ethers.getContractFactory("IndividualChallenge");
+            const IC = new IndividualChallenge__factory(owner);
             await expect(IC.deploy(
                 1n, owner.address, "T", "C",
                 now + JOIN_WINDOW, now + ACTIVE_WINDOW,
@@ -67,7 +68,7 @@ describe("IndividualChallenge", () => {
         it("reverts when joinDeadline is in the past", async () => {
             const { owner, verifier, reputation, treasury } = await loadFixture(individualFixture);
             const past = (await time.latest()) - 1;
-            const IC = await ethers.getContractFactory("IndividualChallenge");
+            const IC = new IndividualChallenge__factory(owner);
             await expect(IC.deploy(
                 1n, owner.address, "T", "C",
                 past, past + 100,
@@ -80,7 +81,7 @@ describe("IndividualChallenge", () => {
         it("reverts when joinDeadline >= challengeDeadline", async () => {
             const { owner, verifier, reputation, treasury } = await loadFixture(individualFixture);
             const now = await time.latest();
-            const IC = await ethers.getContractFactory("IndividualChallenge");
+            const IC = new IndividualChallenge__factory(owner);
             await expect(IC.deploy(
                 1n, owner.address, "T", "C",
                 now + 3600, now + 3600,         // equal deadlines

@@ -1,6 +1,7 @@
 import { expect } from "chai";
 import { ethers } from "hardhat";
 import { loadFixture, time } from "@nomicfoundation/hardhat-network-helpers";
+import { PublicChallenge__factory } from "../../typechain-types";
 import {
     publicFixture,
     advanceToActive,
@@ -25,7 +26,7 @@ describe("PublicChallenge", () => {
         it("reverts when no prize pool ETH is sent", async () => {
             const { owner, verifier, reputation, treasury } = await loadFixture(publicFixture);
             const now = await time.latest();
-            const PC  = await ethers.getContractFactory("PublicChallenge");
+            const PC  = new PublicChallenge__factory(owner);
             await expect(PC.deploy(
                 3n, owner.address, "T", "C",
                 now + JOIN_WINDOW, now + ACTIVE_WINDOW,

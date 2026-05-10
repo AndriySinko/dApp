@@ -1,6 +1,7 @@
 import { expect } from "chai";
 import { ethers } from "hardhat";
 import { loadFixture, time } from "@nomicfoundation/hardhat-network-helpers";
+import { GroupChallenge__factory } from "../../typechain-types";
 import {
     groupFixture,
     advanceToActive,
@@ -25,7 +26,7 @@ describe("GroupChallenge", () => {
         it("reverts with zero buy-in", async () => {
             const { owner, verifier, reputation, treasury } = await loadFixture(groupFixture);
             const now = await time.latest();
-            const GC = await ethers.getContractFactory("GroupChallenge");
+            const GC = new GroupChallenge__factory(owner);
             await expect(GC.deploy(
                 2n, owner.address, "T", "C",
                 now + JOIN_WINDOW, now + ACTIVE_WINDOW,
@@ -39,7 +40,7 @@ describe("GroupChallenge", () => {
         it("reverts when joinDl >= challengeDl", async () => {
             const { owner, verifier, reputation, treasury } = await loadFixture(groupFixture);
             const now = await time.latest();
-            const GC = await ethers.getContractFactory("GroupChallenge");
+            const GC = new GroupChallenge__factory(owner);
             await expect(GC.deploy(
                 2n, owner.address, "T", "C",
                 now + 7200, now + 3600,         // inverted order
@@ -53,7 +54,7 @@ describe("GroupChallenge", () => {
         it("reverts with zero verifier address", async () => {
             const { owner, reputation, treasury } = await loadFixture(groupFixture);
             const now = await time.latest();
-            const GC = await ethers.getContractFactory("GroupChallenge");
+            const GC = new GroupChallenge__factory(owner);
             await expect(GC.deploy(
                 2n, owner.address, "T", "C",
                 now + JOIN_WINDOW, now + ACTIVE_WINDOW,
