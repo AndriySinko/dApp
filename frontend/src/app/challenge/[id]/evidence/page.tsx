@@ -2,21 +2,60 @@
 
 import Link from "next/link";
 import { useParams } from "next/navigation";
-import { CHALLENGES, MOCK_NONCE } from "@/lib/data";
+import { useAccount, useReadContract } from "wagmi";
 import { EvidenceUploader } from "@/components/EvidenceUploader";
+import { ADDRESSES, FACTORY_ABI, INDIVIDUAL_CHALLENGE_ABI } from "@/lib/contracts";
+import { CHALLENGE_TYPE_FROM_NUM, type ChallengeType } from "@/lib/types";
+import { useCurrentDayNonce, useDaysComplete } from "@/lib/hooks/useEvidence";
+
+type RawChallengeInfo = {
+  id: bigint; challengeType: number; verifier: number; creator: `0x${string}`; title: string;
+};
 
 export default function EvidencePage() {
   const { id } = useParams<{ id: string }>();
-  const challenge = CHALLENGES.find(c => c.id === id) ?? CHALLENGES[2];
-  const total    = challenge.totalDays ?? 30;
-  const done     = challenge.daysComplete ?? 12;
-  const today    = done + 1;
-  const pctDone  = Math.round((done / total) * 100);
+  const { address: userAddress } = useAccount();
+  const challengeAddress = id as `0x${string}`;
+
+  const { data: infoRaw } = useReadContract({
+    address: ADDRESSES.factory,
+    abi: FACTORY_ABI,
+    functionName: "getChallengeInfo",
+    args: [challengeAddress],
+    query: { enabled: !!challengeAddress },
+  });
+  const info = infoRaw as RawChallengeInfo | undefined;
+  const challengeType: ChallengeType = info ? CHALLENGE_TYPE_FROM_NUM[info.challengeType] : "GROUP";
+  const title = info?.title ?? "Loading…";
+
+  const { data: joinDlRaw } = useReadContract({
+    address: challengeAddress,
+    abi: INDIVIDUAL_CHALLENGE_ABI,
+    functionName: "joinDeadline",
+    query: { enabled: !!challengeAddress },
+  });
+  const { data: challengeDlRaw } = useReadContract({
+    address: challengeAddress,
+    abi: INDIVIDUAL_CHALLENGE_ABI,
+    functionName: "challengeDeadline",
+    query: { enabled: !!challengeAddress },
+  });
+  const total = joinDlRaw && challengeDlRaw
+    ? Math.max(1, Math.ceil((Number(challengeDlRaw) - Number(joinDlRaw)) / 86400))
+    : 30;
+
+  const { nonce } = useCurrentDayNonce(challengeAddress, challengeType);
+  const { daysComplete: doneRaw } = useDaysComplete(challengeAddress, userAddress as `0x${string}` | undefined, challengeType);
+  const done    = doneRaw ? Number(doneRaw) : 0;
+  const today   = done + 1;
+  const pctDone = Math.round((done / total) * 100);
+
+  const nonceDisplay = nonce ?? "0x00000000";
 
   return (
     <div className="container fade-in" style={{ paddingTop: 40, paddingBottom: 80, maxWidth: 1100 }}>
       <div className="row gap-2 muted" style={{ fontSize: 12, marginBottom: 20, fontFamily: "var(--f-mono)" }}>
-        <Link href={`/challenge/${challenge.id}`} className="dim">← {challenge.id}</Link>
+        <Link href={`/challenge/${challengeAddress}`} className="dim">← {`${challengeAddress.slice(0, 6)}…${challengeAddress.slice(-4)}`}</Link>
         <span className="dim">/</span>
         <span>evidence · day {today}</span>
       </div>
@@ -25,11 +64,11 @@ export default function EvidencePage() {
         <div>
           <div className="row gap-2" style={{ marginBottom: 14 }}>
             <span className="tag acc">◈ AI ORACLE</span>
-            <span className="tag">{challenge.id}</span>
+            <span className="tag">{`${challengeAddress.slice(0, 6)}…${challengeAddress.slice(-4)}`}</span>
             <span className="status-dot warn" />
-            <span className="muted" style={{ fontSize: 12 }}>Today&apos;s nonce expires in 14h 22m</span>
+            <span className="muted" style={{ fontSize: 12 }}>Today&apos;s nonce expires at 00:00 UTC</span>
           </div>
-          <h1 className="serif" style={{ fontSize: 44, fontWeight: 400 }}>{challenge.title}</h1>
+          <h1 className="serif" style={{ fontSize: 44, fontWeight: 400 }}>{title}</h1>
         </div>
       </div>
 
@@ -47,7 +86,7 @@ export default function EvidencePage() {
               color: "var(--acc)", textAlign: "center",
               boxShadow: "inset 0 0 32px rgba(212,255,61,0.06)",
             }}>
-              {MOCK_NONCE}
+              {nonceDisplay.slice(0, 18)}…
             </div>
             <div className="muted" style={{ fontSize: 12.5, marginTop: 14, lineHeight: 1.55 }}>
               Write this code on paper or display it on a phone in today&apos;s photo.
@@ -55,7 +94,12 @@ export default function EvidencePage() {
             </div>
           </div>
 
-          <EvidenceUploader challengeId={challenge.id} nonce={MOCK_NONCE} />
+          <EvidenceUploader
+            challengeId={`${challengeAddress.slice(0, 6)}…${challengeAddress.slice(-4)}`}
+            nonce={nonceDisplay}
+            challengeAddress={challengeAddress}
+            challengeType={challengeType}
+          />
         </div>
 
         <div className="col gap-4">
@@ -100,7 +144,7 @@ export default function EvidencePage() {
               {[
                 ["1.", "Photo uploaded to IPFS via Pinata",         done >= 1  ? "✓" : "—"],
                 ["2.", "submitEvidence(cid) tx confirmed",          done >= 1  ? "✓" : "—"],
-                ["3.", `Active period ends (${total - done} days left)`,       "—"],
+                ["3.", `Active period ends (${Math.max(0, total - done)} days left)`, "—"],
                 ["4.", "Chainlink Functions fetches all photos",    "—"],
                 ["5.", "Gemini Vision: criteria + nonce per photo", "—"],
                 ["6.", "Verifier callback → receiveVerdict()",      "—"],
