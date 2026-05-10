@@ -7,17 +7,20 @@ import { VERIFIER_TYPE_FROM_NUM, type Proposal, type VerifierType } from "@/lib/
 export function useGovernance(userAddress?: `0x${string}`) {
   const addr = ADDRESSES.governance;
 
+  // Mixing static + conditional contracts in one array confuses wagmi's generic inference;
+  // cast to any to bypass the false positive — result types are asserted manually below.
   const { data, isLoading, refetch } = useReadContracts({
     contracts: [
-      { address: addr, abi: GOVERNANCE_ABI, functionName: "getProposals"    } as const,
-      { address: addr, abi: GOVERNANCE_ABI, functionName: "currentEpoch"    } as const,
-      { address: addr, abi: GOVERNANCE_ABI, functionName: "currentEpochEnd" } as const,
-      { address: addr, abi: GOVERNANCE_ABI, functionName: "prizePerEpoch"   } as const,
+      { address: addr, abi: GOVERNANCE_ABI, functionName: "getProposals"    },
+      { address: addr, abi: GOVERNANCE_ABI, functionName: "currentEpoch"    },
+      { address: addr, abi: GOVERNANCE_ABI, functionName: "currentEpochEnd" },
+      { address: addr, abi: GOVERNANCE_ABI, functionName: "prizePerEpoch"   },
       ...(userAddress ? [
-        { address: addr, abi: GOVERNANCE_ABI, functionName: "hasVotedThisEpoch", args: [userAddress] } as const,
-        { address: addr, abi: GOVERNANCE_ABI, functionName: "getVoteWeight",     args: [userAddress] } as const,
+        { address: addr, abi: GOVERNANCE_ABI, functionName: "hasVotedThisEpoch", args: [userAddress] },
+        { address: addr, abi: GOVERNANCE_ABI, functionName: "getVoteWeight",     args: [userAddress] },
       ] : []),
-    ],
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    ] as any,
     query: { enabled: !!addr },
   });
 

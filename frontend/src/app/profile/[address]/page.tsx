@@ -6,12 +6,18 @@ import { Sparkline } from "@/components/ui";
 import { PROFILE, LEADERBOARD, PROFILE_CHALLENGES, REPUTATION_SPARKLINE } from "@/lib/data";
 import { STATE_CLASS, STATE_LABEL } from "@/lib/utils";
 import type { ChallengeState } from "@/lib/types";
+import { useReputation } from "@/lib/hooks/useReputation";
+import { useLeaderboard } from "@/lib/hooks/useLeaderboard";
 
 type Filter = "All" | "Created" | "Bet";
 
 export default function ProfilePage() {
-  useParams<{ address: string }>();
+  const { address: urlAddress } = useParams<{ address: string }>();
+  const profileAddress = urlAddress as `0x${string}`;
   const [filter, setFilter] = useState<Filter>("All");
+
+  const { scoreNum } = useReputation(profileAddress);
+  const { leaderboard } = useLeaderboard();
 
   const filtered = PROFILE_CHALLENGES.filter(c => {
     if (filter === "Created") return c.role === "creator";
@@ -34,7 +40,9 @@ export default function ProfilePage() {
           <div className="col gap-2" style={{ alignItems: "flex-end" }}>
             <div className="eyebrow">Reputation</div>
             <div style={{ display: "flex", alignItems: "baseline", gap: 8 }}>
-              <span className="serif" style={{ fontSize: 64, lineHeight: 1, color: "var(--acc)" }}>{PROFILE.reputation}</span>
+              <span className="serif" style={{ fontSize: 64, lineHeight: 1, color: "var(--acc)" }}>
+                {scoreNum !== undefined ? scoreNum : "…"}
+              </span>
               <span className="muted">vote weight</span>
             </div>
           </div>
@@ -112,7 +120,7 @@ export default function ProfilePage() {
           <div className="card" style={{ padding: 24 }}>
             <div className="row" style={{ justifyContent: "space-between", marginBottom: 14 }}>
               <div className="eyebrow">Reputation over time</div>
-              <span className="num muted" style={{ fontSize: 12 }}>+{PROFILE.reputation} since Sep</span>
+              <span className="num muted" style={{ fontSize: 12 }}>score: {scoreNum !== undefined ? scoreNum : "…"}</span>
             </div>
             <div style={{ height: 120 }}>
               <Sparkline points={REPUTATION_SPARKLINE} color="var(--acc)" />
@@ -123,7 +131,7 @@ export default function ProfilePage() {
         <div className="col gap-4">
           <h2 className="h-2">Leaderboard</h2>
           <div className="card" style={{ padding: 0, overflow: "hidden" }}>
-            {LEADERBOARD.map((r, i, arr) => {
+            {(leaderboard.length > 0 ? leaderboard : LEADERBOARD).map((r, i, arr) => {
               const isMe = r.addr === PROFILE.ens;
               return (
                 <div key={r.rank} style={{ padding: "16px 20px", borderBottom: i < arr.length - 1 ? "1px solid var(--line-soft)" : "none", background: isMe ? "var(--acc-bg)" : "transparent" }}>

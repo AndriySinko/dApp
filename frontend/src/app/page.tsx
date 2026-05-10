@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { Sparkline } from "@/components/ui";
-import { ACTIVITY, LANDING_SPARKLINE } from "@/lib/data";
+import { LANDING_SPARKLINE } from "@/lib/data";
+import { LiveActivityFeed } from "@/components/LiveActivityFeed";
 
 export default function LandingPage() {
   return (
@@ -225,20 +226,7 @@ export default function LandingPage() {
           </div>
           <Link href="/dashboard" className="btn ghost sm">View all →</Link>
         </div>
-        <div className="card">
-          {ACTIVITY.map((a, i) => (
-            <div key={i} className="row" style={{ padding: "14px 20px", borderBottom: i < ACTIVITY.length - 1 ? "1px solid var(--line-soft)" : "none", justifyContent: "space-between", fontSize: 13 }}>
-              <div className="row gap-3">
-                <span className="mono dim" style={{ width: 40 }}>−{a.time}</span>
-                <span className="avatar sm" />
-                <span className="mono" style={{ color: "var(--text-2)" }}>{a.actor}</span>
-                <span className="muted">{a.action}</span>
-                <span className="chip">{a.target}</span>
-              </div>
-              <span className="dim mono" style={{ fontSize: 11 }}>tx ↗</span>
-            </div>
-          ))}
-        </div>
+        <LiveActivityFeed />
       </section>
 
       <footer style={{ borderTop: "1px solid var(--line-soft)", padding: "40px 0", background: "var(--bg-1)" }}>
