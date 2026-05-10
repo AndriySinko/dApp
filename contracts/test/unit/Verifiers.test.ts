@@ -426,6 +426,20 @@ describe("AiOracleVerifier", () => {
             await verifier.setDonId(id);
             expect(await verifier.donId()).to.equal(id);
         });
+
+        it("setSecretsReference stores slotId and version", async () => {
+            const { verifier } = await loadFixture(aiOracleVerifierFixture);
+            await verifier.setSecretsReference(2, 5n);
+            expect(await verifier.secretsSlotId()).to.equal(2);
+            expect(await verifier.secretsVersion()).to.equal(5n);
+        });
+
+        it("setSecretsReference reverts for non-owner", async () => {
+            const { verifier, alice } = await loadFixture(aiOracleVerifierFixture);
+            await expect(
+                verifier.connect(alice).setSecretsReference(0, 1n),
+            ).to.be.revertedWithCustomError(verifier, "OwnableUnauthorizedAccount");
+        });
     });
 
     describe("requestVerification", () => {
@@ -446,6 +460,20 @@ describe("AiOracleVerifier", () => {
             await expect(
                 challenge.callRequestVerification(await verifier.getAddress(), alice.address, params),
             ).to.be.revertedWith("JS source not configured");
+        });
+
+        it("reverts when secrets are not configured", async () => {
+            const { router, challenge, alice, owner } = await loadFixture(aiOracleVerifierFixture);
+            // Deploy a fresh verifier with no secrets set
+            const { AiOracleVerifier__factory } = await import("../../typechain-types");
+            const fresh = await new AiOracleVerifier__factory(owner).deploy(
+                await router.getAddress(), owner.address, 1n, ethers.ZeroHash,
+            );
+            await fresh.setJsSource("return 1;");
+            const params = encodeParams("evidence:5");
+            await expect(
+                challenge.callRequestVerification(await fresh.getAddress(), alice.address, params),
+            ).to.be.revertedWith("Secrets not configured");
         });
 
         it("reverts when verification is already pending", async () => {

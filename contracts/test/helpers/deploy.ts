@@ -257,5 +257,6 @@ export async function aiOracleVerifierFixture() {
     );
     // joinDeadline = now, challengeDeadline = now + 30 days
     const challenge = await new MockChallenge__factory(owner).deploy(now, now + 30 * 86_400);
+    await verifier.setSecretsReference(0, 1n); // slotId=0, version=1
     return { owner, alice, bob, verifier, router, challenge };
 }
