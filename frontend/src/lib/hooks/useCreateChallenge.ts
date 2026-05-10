@@ -56,6 +56,25 @@ export function useCreateChallenge() {
     query: { enabled: !!createTxHash },
   });
 
+  const _create = useCallback((params: CreateChallengeParams, buyInWei: bigint) => {
+    setStep("creating");
+    writeCreate({
+      address: ADDRESSES.factory,
+      abi: FACTORY_ABI,
+      functionName: "createChallenge",
+      args: [
+        CHALLENGE_TYPE_NUM[params.challengeType],
+        VERIFIER_TYPE_NUM[params.verifier],
+        params.title,
+        params.criteria,
+        params.joinDeadline,
+        params.challengeDeadline,
+        buyInWei,
+      ],
+      value: params.challengeType === "INDIVIDUAL" ? buyInWei : BigInt(0),
+    });
+  }, [writeCreate]);
+
   // Main action — handles both steps
   const deploy = useCallback(async (params: CreateChallengeParams) => {
     if (!ADDRESSES.factory || !ADDRESSES.linkToken) return;
@@ -75,26 +94,7 @@ export function useCreateChallenge() {
     } else {
       _create(params, buyInWei);
     }
-  }, [linkAllowance, writeLinkApprove]);
-
-  const _create = useCallback((params: CreateChallengeParams, buyInWei: bigint) => {
-    setStep("creating");
-    writeCreate({
-      address: ADDRESSES.factory,
-      abi: FACTORY_ABI,
-      functionName: "createChallenge",
-      args: [
-        CHALLENGE_TYPE_NUM[params.challengeType],
-        VERIFIER_TYPE_NUM[params.verifier],
-        params.title,
-        params.criteria,
-        params.joinDeadline,
-        params.challengeDeadline,
-        buyInWei,
-      ],
-      value: params.challengeType === "INDIVIDUAL" ? buyInWei : BigInt(0),
-    });
-  }, [writeCreate]);
+  }, [_create, linkAllowance, writeLinkApprove]);
 
   // When approve tx confirms, proceed to create
   if (isApproveConfirmed && step === "approving" && pendingParams) {

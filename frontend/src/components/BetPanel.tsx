@@ -6,6 +6,7 @@ import type { Challenge, BetSide } from "@/lib/types";
 import { pct, multiplier, formatEth } from "@/lib/utils";
 import { TxButton } from "./TxButton";
 import { usePlaceBet } from "@/lib/hooks/usePlaceBet";
+import { useJoinGroup } from "@/lib/hooks/useJoinGroup";
 
 const PRESETS = [0.05, 0.10, 0.25];
 
@@ -29,6 +30,8 @@ export function BetPanel({ challenge }: { challenge: Challenge }) {
 
   const challengeAddress = challenge.address as `0x${string}` | undefined;
   const { placeBet, isPending, isConfirming, isSuccess, error } = usePlaceBet(challengeAddress);
+  const { join, isPending: joinPending, isConfirming: joinConfirming, isSuccess: joinSuccess, error: joinError } =
+    useJoinGroup(challengeAddress, challenge.type);
 
   const handleBet = () => {
     if (!challengeAddress) return;
@@ -36,7 +39,79 @@ export function BetPanel({ challenge }: { challenge: Challenge }) {
     placeBet(side === "FOR", amountWei);
   };
 
-  const canBet = challenge.state === "JOIN_OPEN" && !!challengeAddress;
+  const handleJoin = () => {
+    if (!challengeAddress) return;
+    join(parseEther(amount || "0"));
+  };
+
+  const isGroupType = challenge.type === "GROUP" || challenge.type === "PUBLIC";
+  const canAct = challenge.state === "JOIN_OPEN" && !!challengeAddress;
+
+  if (isGroupType) {
+    return (
+      <>
+        <div className="card" style={{ padding: 24 }}>
+          <div className="eyebrow" style={{ marginBottom: 16 }}>Join challenge</div>
+          <div className="field" style={{ marginBottom: 10 }}>
+            <label>Stake (ETH) — min {formatEth(challenge.buyIn)}</label>
+            <input className="input" value={amount} onChange={e => setAmount(e.target.value)} placeholder="0.00" />
+          </div>
+          <div className="row gap-2" style={{ marginBottom: 18 }}>
+            {PRESETS.map(p => (
+              <button key={p} className="btn sm" onClick={() => setAmount(String(p))}>{p}</button>
+            ))}
+          </div>
+          <div className="dots" style={{ marginBottom: 14 }} />
+          <div className="col gap-2" style={{ fontSize: 12.5, marginBottom: 18 }}>
+            <div className="row" style={{ justifyContent: "space-between" }}>
+              <span className="muted">Your stake</span>
+              <span className="num">{formatEth(stake)}</span>
+            </div>
+            <div className="row" style={{ justifyContent: "space-between" }}>
+              <span className="muted">Protocol fee</span>
+              <span className="dim">2% of losing pool</span>
+            </div>
+            {challenge.type === "PUBLIC" && (
+              <div className="row" style={{ justifyContent: "space-between" }}>
+                <span className="muted">Treasury bonus</span>
+                <span style={{ color: "var(--win)" }}>flat prize / winners</span>
+              </div>
+            )}
+          </div>
+          {(joinError) && (
+            <div className="muted" style={{ fontSize: 11, color: "var(--loss)", marginBottom: 10, fontFamily: "var(--f-mono)" }}>
+              {(joinError as Error).message?.slice(0, 80)}
+            </div>
+          )}
+          <TxButton
+            label={canAct ? `Join — stake ${formatEth(stake)}` : challenge.state === "SETTLED" ? "Settled" : "Joining closed"}
+            successLabel="Joined!"
+            className="btn primary lg"
+            style={{ width: "100%", justifyContent: "center" }}
+            onSubmit={canAct ? handleJoin : undefined}
+            isPending={joinPending || joinConfirming}
+            isSuccess={joinSuccess}
+            disabled={!canAct}
+          />
+        </div>
+        <div className="card" style={{ padding: 20, fontFamily: "var(--f-mono)", fontSize: 11.5 }}>
+          <div className="eyebrow" style={{ marginBottom: 12 }}>Contracts</div>
+          <div className="col gap-2">
+            <div className="row" style={{ justifyContent: "space-between" }}>
+              <span className="dim">challenge</span>
+              <span>{challengeAddress ? `${challengeAddress.slice(0, 6)}...${challengeAddress.slice(-4)}` : "—"}</span>
+            </div>
+            <div className="row" style={{ justifyContent: "space-between" }}>
+              <span className="dim">type</span>
+              <span>{challenge.type}</span>
+            </div>
+          </div>
+        </div>
+      </>
+    );
+  }
+
+  const canBet = canAct;
   const betLabel = `Bet ${formatEth(stake)} ${side}`;
 
   return (
