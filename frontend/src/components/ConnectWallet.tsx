@@ -1,14 +1,16 @@
 "use client";
 
-import { useState } from "react";
-import { MOCK_CONNECTED_ENS } from "@/lib/data";
+import { useAccount, useConnect, useDisconnect } from "wagmi";
+import { injected } from "wagmi/connectors";
 
 export function ConnectWallet() {
-  const [connected, setConnected] = useState(true);
+  const { address, isConnected } = useAccount();
+  const { connect } = useConnect();
+  const { disconnect } = useDisconnect();
 
-  if (!connected) {
+  if (!isConnected || !address) {
     return (
-      <button className="btn primary sm" onClick={() => setConnected(true)}>
+      <button className="btn primary sm" onClick={() => connect({ connector: injected() })}>
         Connect wallet
       </button>
     );
@@ -16,9 +18,9 @@ export function ConnectWallet() {
 
   return (
     <div className="row gap-3">
-      <div className="wallet-pill" onClick={() => setConnected(false)} title="Click to disconnect">
+      <div className="wallet-pill" onClick={() => disconnect()} title="Click to disconnect">
         <span className="dot" />
-        <span>{MOCK_CONNECTED_ENS}</span>
+        <span>{address.slice(0, 6)}…{address.slice(-4)}</span>
       </div>
     </div>
   );
