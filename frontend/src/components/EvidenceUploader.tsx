@@ -1,15 +1,27 @@
 "use client";
 
 import { useRef, useState } from "react";
-import { TxButton } from "./TxButton";
+import { uploadToIPFS } from "@/lib/ipfs";
+import { useSubmitEvidence } from "@/lib/hooks/useEvidence";
+import type { ChallengeType } from "@/lib/types";
 
-type UploadState = "idle" | "selected" | "uploading" | "done";
+type UploadState = "idle" | "selected" | "uploading" | "submitting" | "done" | "error";
 
-export function EvidenceUploader({ challengeId, nonce }: { challengeId: string; nonce: string }) {
+interface EvidenceUploaderProps {
+  challengeId: string;
+  nonce: string;
+  challengeAddress?: `0x${string}`;
+  challengeType?: ChallengeType;
+}
+
+export function EvidenceUploader({ challengeId, nonce, challengeAddress, challengeType }: EvidenceUploaderProps) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [file, setFile] = useState<File | null>(null);
   const [uploadState, setUploadState] = useState<UploadState>("idle");
   const [ipfsCid, setIpfsCid] = useState<string | null>(null);
+  const [uploadError, setUploadError] = useState<string | null>(null);
+
+  const { submitEvidence, isPending, isSuccess } = useSubmitEvidence(challengeAddress, challengeType ?? "GROUP");
 
   const handleFile = (f: File) => {
     setFile(f);
@@ -27,13 +39,22 @@ export function EvidenceUploader({ challengeId, nonce }: { challengeId: string; 
     if (f) handleFile(f);
   };
 
-  const handleUpload = () => {
+  const handleUpload = async () => {
+    if (!file) return;
+    setUploadError(null);
     setUploadState("uploading");
-    setTimeout(() => {
-      setIpfsCid("QmXoypizjW3WknFiJnKLwHCnL72vedxjQkDDP1mXWo6uco");
-      setUploadState("done");
-    }, 1800);
+    try {
+      const cid = await uploadToIPFS(file);
+      setIpfsCid(cid);
+      setUploadState("submitting");
+      submitEvidence(cid, nonce as `0x${string}`);
+    } catch (err) {
+      setUploadError(err instanceof Error ? err.message : "Upload failed");
+      setUploadState("error");
+    }
   };
+
+  const isDone = isSuccess || uploadState === "done";
 
   return (
     <div className="card" style={{ padding: 0, overflow: "hidden" }}>
@@ -42,12 +63,12 @@ export function EvidenceUploader({ challengeId, nonce }: { challengeId: string; 
         <span className="muted mono" style={{ fontSize: 11 }}>→ ipfs (pinata) → {challengeId}.submitEvidence(cid)</span>
       </div>
 
-      {uploadState === "done" ? (
+      {isDone ? (
         <div className="col gap-3" style={{ padding: 24, alignItems: "center" }}>
           <div style={{ fontSize: 36 }}>✓</div>
-          <div style={{ fontWeight: 500 }}>Evidence submitted</div>
+          <div style={{ fontWeight: 500 }}>Evidence submitted on-chain</div>
           <div className="chip" style={{ fontSize: 10.5 }}>{ipfsCid?.slice(0, 20)}…</div>
-          <div className="muted" style={{ fontSize: 12 }}>Nonce {nonce} verified by Gemini Vision</div>
+          <div className="muted" style={{ fontSize: 12 }}>Nonce {nonce.slice(0, 10)}… recorded — Gemini will verify at deadline</div>
         </div>
       ) : (
         <>
@@ -77,15 +98,23 @@ export function EvidenceUploader({ challengeId, nonce }: { challengeId: string; 
             )}
           </div>
           <input ref={inputRef} type="file" accept="image/*" style={{ display: "none" }} onChange={handleInput} />
+          {uploadError && (
+            <div style={{ padding: "0 22px", marginBottom: 8, color: "var(--loss)", fontSize: 12, fontFamily: "var(--f-mono)" }}>
+              {uploadError}
+            </div>
+          )}
           {file && (
             <div style={{ padding: "0 22px 22px" }}>
-              <TxButton
-                label={uploadState === "uploading" ? "Uploading to IPFS…" : "Upload & submit evidence"}
-                successLabel="Submitted on-chain!"
+              <button
                 className="btn primary"
                 style={{ width: "100%", justifyContent: "center" }}
-                onSuccess={() => handleUpload()}
-              />
+                disabled={uploadState === "uploading" || uploadState === "submitting" || isPending}
+                onClick={handleUpload}
+              >
+                {uploadState === "uploading"  ? "⏳ Uploading to IPFS…"        :
+                 uploadState === "submitting" || isPending ? "⏳ Waiting for wallet…" :
+                 "Upload & submit evidence"}
+              </button>
             </div>
           )}
         </>

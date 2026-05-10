@@ -5,6 +5,7 @@ import { PAST_EPOCHS } from "@/lib/data";
 import { VERIFIER_ICON, VERIFIER_LABEL, timeLeft } from "@/lib/utils";
 import { useGovernance, useVote } from "@/lib/hooks/useGovernance";
 import { ADDRESSES } from "@/lib/contracts";
+import { useEpochResults } from "@/lib/hooks/useEpochResults";
 
 export default function PublicPage() {
   const { address } = useAccount();
@@ -23,6 +24,7 @@ export default function PublicPage() {
   } = useGovernance(address);
 
   const { vote, isPending: isVotePending, isSuccess: isVoteSuccess } = useVote();
+  const { epochs: liveEpochs } = useEpochResults();
 
   const handleVote = (proposalIndex: number) => {
     vote(proposalIndex);
@@ -157,21 +159,37 @@ export default function PublicPage() {
               </tr>
             </thead>
             <tbody>
-              {PAST_EPOCHS.map(e => (
-                <tr key={e.epoch}>
-                  <td><span className="mono dim">#{e.epoch}</span></td>
-                  <td>{e.title}</td>
-                  <td>
-                    <span className="tag" style={{ color: "var(--text-2)" }}>
-                      <span style={{ color: "var(--acc)" }}>{VERIFIER_ICON[e.verifier]}</span>{" "}
-                      {VERIFIER_LABEL[e.verifier]}
-                    </span>
-                  </td>
-                  <td style={{ textAlign: "right" }} className="num">{e.votes.toLocaleString()}</td>
-                  <td style={{ textAlign: "right" }} className="num">Ξ {e.prizePool.toFixed(2)}</td>
-                  <td style={{ textAlign: "right" }} className="muted">{e.outcome}</td>
-                </tr>
-              ))}
+              {(liveEpochs.length > 0 ? liveEpochs : PAST_EPOCHS).map(e => {
+                const isLive = liveEpochs.length > 0;
+                const epoch      = e.epoch;
+                const title      = isLive ? (e as typeof liveEpochs[0]).title : (e as typeof PAST_EPOCHS[0]).title;
+                const prizePool  = (e as { prizePool: number }).prizePool;
+                const verifier   = !isLive ? (e as typeof PAST_EPOCHS[0]).verifier : null;
+                const votes      = !isLive ? (e as typeof PAST_EPOCHS[0]).votes    : null;
+                const outcome    = !isLive ? (e as typeof PAST_EPOCHS[0]).outcome  : null;
+                const addr       = isLive  ? (e as typeof liveEpochs[0]).publicChallengeAddress : null;
+                return (
+                  <tr key={epoch}>
+                    <td><span className="mono dim">#{epoch}</span></td>
+                    <td>{title}</td>
+                    <td>
+                      {verifier ? (
+                        <span className="tag" style={{ color: "var(--text-2)" }}>
+                          <span style={{ color: "var(--acc)" }}>{VERIFIER_ICON[verifier]}</span>{" "}
+                          {VERIFIER_LABEL[verifier]}
+                        </span>
+                      ) : addr ? (
+                        <span className="mono dim" style={{ fontSize: 11 }}>{addr.slice(0, 6)}…{addr.slice(-4)}</span>
+                      ) : (
+                        <span className="muted">—</span>
+                      )}
+                    </td>
+                    <td style={{ textAlign: "right" }} className="num">{votes !== null ? votes.toLocaleString() : "—"}</td>
+                    <td style={{ textAlign: "right" }} className="num">Ξ {prizePool.toFixed(2)}</td>
+                    <td style={{ textAlign: "right" }} className="muted">{outcome ?? "deployed"}</td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>

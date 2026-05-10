@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { CHALLENGES } from "@/lib/data";
+import { useSquidChallenges } from "@/lib/hooks/useSquidChallenges";
 import { ChallengeCard } from "@/components/ChallengeCard";
 import type { ChallengeState, ChallengeType } from "@/lib/types";
 
@@ -15,7 +15,9 @@ export default function DashboardPage() {
   const [stateFilter, setStateFilter] = useState<StateFilter>("All");
   const [typeFilter,  setTypeFilter]  = useState<TypeFilter>("Any type");
 
-  const filtered = CHALLENGES.filter(c => {
+  const { challenges, isLoading } = useSquidChallenges();
+
+  const filtered = challenges.filter(c => {
     if (stateFilter === "Live"    && !LIVE_STATES.includes(c.state)) return false;
     if (stateFilter === "Settled" && c.state !== "SETTLED")          return false;
     if (typeFilter  !== "Any type" && c.type !== typeFilter)          return false;
@@ -68,8 +70,15 @@ export default function DashboardPage() {
             </tr>
           </thead>
           <tbody>
-            {filtered.map(c => <ChallengeCard key={c.id} c={c} />)}
-            {filtered.length === 0 && (
+            {isLoading && (
+              <tr>
+                <td colSpan={7} style={{ textAlign: "center", padding: 40, color: "var(--text-4)" }}>
+                  Loading challenges…
+                </td>
+              </tr>
+            )}
+            {!isLoading && filtered.map(c => <ChallengeCard key={c.id} c={c} />)}
+            {!isLoading && filtered.length === 0 && (
               <tr>
                 <td colSpan={7} style={{ textAlign: "center", padding: 40, color: "var(--text-4)" }}>
                   No challenges match the selected filters.

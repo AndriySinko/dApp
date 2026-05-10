@@ -3,26 +3,89 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
+import { useAccount, useReadContract } from "wagmi";
+import { formatEther } from "viem";
 import { Donut, Sparkline } from "@/components/ui";
 import { BetPanel } from "@/components/BetPanel";
 import { StateIndicator } from "@/components/StateIndicator";
-import { CHALLENGES, BETS, FOR_PROBABILITY_SPARKLINE } from "@/lib/data";
+import { FOR_PROBABILITY_SPARKLINE } from "@/lib/data";
 import { VERIFIER_ICON, VERIFIER_LABEL, TYPE_LABEL, pct, formatEth, timeLeft, multiplier } from "@/lib/utils";
+import { ADDRESSES, FACTORY_ABI } from "@/lib/contracts";
+import { CHALLENGE_TYPE_FROM_NUM, VERIFIER_TYPE_FROM_NUM, type Challenge, type ChallengeType, type ChallengeState, type VerifierType } from "@/lib/types";
+import { useChallenge } from "@/lib/hooks/useChallenge";
+
+type ChainData = {
+  state?: ChallengeState;
+  joinDeadline?: bigint;
+  challengeDeadline?: bigint;
+  buyIn?: bigint;
+  participantCount?: number;
+  forPool?: bigint;
+  againstPool?: bigint;
+  bettorsFor?: bigint;
+  bettorsAgainst?: bigint;
+  isLoading: boolean;
+};
 
 type Tab = "Market" | "Details" | "Verifier" | "On-chain";
 const TABS: Tab[] = ["Market", "Details", "Verifier", "On-chain"];
 
+type RawChallengeInfo = {
+  id: bigint;
+  challengeType: number;
+  verifier: number;
+  creator: `0x${string}`;
+  title: string;
+};
+
 export default function ChallengePage() {
   const { id } = useParams<{ id: string }>();
+  const { address: userAddress } = useAccount();
   const [tab, setTab] = useState<Tab>("Market");
 
-  const challenge = CHALLENGES.find(c => c.id === id) ?? CHALLENGES[0];
-  const bets = BETS.filter(b => b.challengeId === challenge.id);
-  const forPool    = challenge.forPool    ?? 0;
-  const againstPool = challenge.againstPool ?? 0;
-  const total = forPool + againstPool + challenge.buyIn;
-  const forP  = pct(forPool, againstPool);
-  const agP   = 100 - forP;
+  const challengeAddress = id as `0x${string}`;
+
+  const { data: infoRaw } = useReadContract({
+    address: ADDRESSES.factory,
+    abi: FACTORY_ABI,
+    functionName: "getChallengeInfo",
+    args: [challengeAddress],
+    query: { enabled: !!challengeAddress },
+  });
+
+  const info = infoRaw as RawChallengeInfo | undefined;
+  const challengeType: ChallengeType = info ? CHALLENGE_TYPE_FROM_NUM[info.challengeType] : "INDIVIDUAL";
+  const verifierType: VerifierType   = info ? VERIFIER_TYPE_FROM_NUM[info.verifier]       : "ON_CHAIN";
+  const creatorAddress                = info?.creator ?? challengeAddress;
+  const title                         = info?.title   ?? "Loading…";
+
+  const chainData = useChallenge(challengeAddress, challengeType, userAddress as `0x${string}` | undefined) as ChainData;
+
+  const forPool    = chainData.forPool     ? parseFloat(formatEther(chainData.forPool))     : 0;
+  const againstPool = chainData.againstPool ? parseFloat(formatEther(chainData.againstPool)) : 0;
+  const buyIn       = chainData.buyIn       ? parseFloat(formatEther(chainData.buyIn))       : 0;
+  const total       = forPool + againstPool + buyIn;
+  const forP        = pct(forPool, againstPool);
+  const agP         = 100 - forP;
+
+  const challenge: Challenge = {
+    id:               challengeAddress,
+    address:          challengeAddress,
+    title,
+    type:             challengeType,
+    verifier:         verifierType,
+    state:            chainData.state ?? "JOIN_OPEN",
+    creator:          `${creatorAddress.slice(0, 6)}…${creatorAddress.slice(-4)}`,
+    creatorAddress,
+    buyIn,
+    joinDeadline:     chainData.joinDeadline      ? new Date(Number(chainData.joinDeadline)      * 1000) : new Date(),
+    challengeDeadline: chainData.challengeDeadline ? new Date(Number(chainData.challengeDeadline) * 1000) : new Date(),
+    forPool:          forPool     || undefined,
+    againstPool:      againstPool || undefined,
+    bettorsFor:       chainData.bettorsFor     ? Number(chainData.bettorsFor)     : 0,
+    bettorsAgainst:   chainData.bettorsAgainst ? Number(chainData.bettorsAgainst) : 0,
+    participants:     chainData.participantCount,
+  };
 
   return (
     <div className="container-wide fade-in" style={{ paddingTop: 32, paddingBottom: 80 }}>
@@ -126,26 +189,9 @@ export default function ChallengePage() {
                 <div style={{ padding: "16px 20px", borderBottom: "1px solid var(--line-soft)" }}>
                   <div className="eyebrow">Recent bets</div>
                 </div>
-                <table className="table">
-                  <thead>
-                    <tr>
-                      <th>when</th><th>side</th><th>bettor</th>
-                      <th style={{ textAlign: "right" }}>amount</th>
-                      <th style={{ textAlign: "right" }}>tx</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {bets.map(b => (
-                      <tr key={b.id}>
-                        <td><span className="mono dim">−{timeLeft(b.timestamp).replace("in ", "")}</span></td>
-                        <td><span className={b.side === "FOR" ? "tag win" : "tag loss"}>{b.side}</span></td>
-                        <td><div className="row gap-2"><span className="avatar sm" /><span className="mono">{b.bettor}</span></div></td>
-                        <td style={{ textAlign: "right" }}><span className="num">{formatEth(b.amount)}</span></td>
-                        <td style={{ textAlign: "right" }}><span className="dim">↗</span></td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+                <div style={{ padding: "24px 20px", color: "var(--text-4)", fontSize: 13, fontFamily: "var(--f-mono)" }}>
+                  Bet history available after Subsquid indexer is deployed.
+                </div>
               </div>
             </div>
           )}
@@ -198,23 +244,19 @@ export default function ChallengePage() {
           )}
 
           {tab === "On-chain" && (
-            <div className="card" style={{ padding: 0, overflow: "hidden" }}>
-              {[
-                { event: "ChallengeCreated",   by: challenge.creator,    age: "7d",  tx: "0xabc1...ef23" },
-                { event: "BetPlaced(FOR)",      by: "0xb2...4f",          age: "12m", tx: "0x5678...ef90" },
-                { event: "BetPlaced(AGAINST)",  by: "0x9e...0c",          age: "47m", tx: "0x1234...cd78" },
-                { event: "BetPlaced(FOR)",      by: "0xa1...22",          age: "2h",  tx: "0xdef4...ab56" },
-              ].map((e, i, arr) => (
-                <div key={i} className="row" style={{ padding: "14px 20px", borderBottom: i < arr.length - 1 ? "1px solid var(--line-soft)" : "none", justifyContent: "space-between", fontSize: 12.5 }}>
-                  <div className="row gap-3">
-                    <span className="mono dim" style={{ width: 40 }}>−{e.age}</span>
-                    <span className="tag acc">{e.event}</span>
-                    <span className="muted">by</span>
-                    <span className="mono">{e.by}</span>
-                  </div>
-                  <span className="chip">{e.tx}</span>
-                </div>
-              ))}
+            <div className="card" style={{ padding: 24, color: "var(--text-4)", fontSize: 13, fontFamily: "var(--f-mono)" }}>
+              On-chain event history available after Subsquid indexer is deployed.
+              <div style={{ marginTop: 12 }}>
+                <a
+                  href={`https://sepolia.etherscan.io/address/${challengeAddress}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="chip"
+                  style={{ color: "var(--acc)" }}
+                >
+                  View on Etherscan ↗
+                </a>
+              </div>
             </div>
           )}
         </div>

@@ -16,7 +16,8 @@
     "@subsquid/typeorm-migration": "^1",
     "@subsquid/typeorm-codegen": "^1",
     "typeorm": "^0.3",
-    "pg": "^8"
+    "pg": "^8",
+    "ethers": "^6"
   },
   "devDependencies": {
     "typescript": "^5",

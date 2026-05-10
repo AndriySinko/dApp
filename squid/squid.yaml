@@ -13,9 +13,16 @@ deploy:
     cmd:
       - node
       - lib/processor.js
+    env:
+      FACTORY_ADDRESS: "0x7792440D48e5403CF839AC692F34FC9d8edc307e"
+      GOVERNANCE_ADDRESS: "0xA3F64aD770C427CAfd0164dBC1F8BA5a1726cdD1"
+      REPUTATION_ADDRESS: "0xFF504a34eD528537532cFc01beDf39bA59154be6"
+      START_BLOCK: "10826953"
+      SEPOLIA_RPC_URL: ${{secrets.SEPOLIA_RPC_URL}}
+  api:
+    cmd:
+      - npx
+      - squid-graphql-server
 
 scale:
-  addons:
-    postgres:
-      storage: 10G
-      profile: medium
+  dedicated: false
