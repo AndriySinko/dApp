@@ -5,9 +5,39 @@ import Link from "next/link";
 import { useAccount } from "wagmi";
 import { useCreateChallenge } from "@/lib/hooks/useCreateChallenge";
 import { TxButton } from "@/components/TxButton";
+import { CriteriaBuilder } from "@/components/CriteriaBuilder";
 import type { ChallengeType, VerifierType } from "@/lib/types";
 import { VERIFIER_ICON, VERIFIER_LABEL } from "@/lib/utils";
 import { LINK_UPKEEP_AMOUNT } from "@/lib/contracts";
+
+type TimeUnit = "minutes" | "hours" | "days";
+
+function toSeconds(value: string, unit: TimeUnit): number {
+  const n = parseFloat(value) || 0;
+  if (unit === "minutes") return n * 60;
+  if (unit === "hours")   return n * 3600;
+  return n * 86400;
+}
+
+function TimeInput({ label, value, onChange, unit, onUnitChange, hint }: {
+  label: string; value: string; onChange: (v: string) => void;
+  unit: TimeUnit; onUnitChange: (u: TimeUnit) => void; hint?: string;
+}) {
+  return (
+    <div className="field">
+      <label>{label}</label>
+      <div className="row gap-2">
+        <input className="input" type="number" value={value} onChange={e => onChange(e.target.value)} min="1" style={{ flex: 1 }} />
+        <select className="input" value={unit} onChange={e => onUnitChange(e.target.value as TimeUnit)} style={{ width: 110 }}>
+          <option value="minutes">minutes</option>
+          <option value="hours">hours</option>
+          <option value="days">days</option>
+        </select>
+      </div>
+      {hint && <span className="field-hint">{hint}</span>}
+    </div>
+  );
+}
 
 type Step = 1 | 2 | 3 | 4;
 
@@ -28,22 +58,27 @@ export default function CreatePage() {
   const { isConnected } = useAccount();
   const { deploy, step: txStep, isPending, isSuccess, hasLinkApproval } = useCreateChallenge();
 
-  const [step,     setStep]     = useState<Step>(1);
-  const [type,     setType]     = useState<ChallengeType>("INDIVIDUAL");
-  const [verifier, setVerifier] = useState<VerifierType>("API_ORACLE");
-  const [title,    setTitle]    = useState("");
-  const [criteria, setCriteria] = useState("");
-  const [buyIn,    setBuyIn]    = useState("0.10");
-  const [joinDays, setJoinDays] = useState("2");
-  const [duration, setDuration] = useState("7");
+  const [step,         setStep]        = useState<Step>(1);
+  const [type,         setType]        = useState<ChallengeType>("INDIVIDUAL");
+  const [verifier,     setVerifier]    = useState<VerifierType>("API_ORACLE");
+  const [title,        setTitle]       = useState("");
+  const [criteria,     setCriteria]    = useState("");
+  const [buyIn,        setBuyIn]       = useState("0.10");
+  const [joinVal,      setJoinVal]     = useState("2");
+  const [joinUnit,     setJoinUnit]    = useState<TimeUnit>("days");
+  const [durVal,       setDurVal]      = useState("7");
+  const [durUnit,      setDurUnit]     = useState<TimeUnit>("days");
 
   const next = () => setStep(s => Math.min(s + 1, 4) as Step);
   const prev = () => setStep(s => Math.max(s - 1, 1) as Step);
 
+  const joinSecs = toSeconds(joinVal, joinUnit);
+  const durSecs  = toSeconds(durVal,  durUnit);
+
   const handleDeploy = () => {
     const now = Math.floor(Date.now() / 1000);
-    const joinDeadline      = BigInt(now + Number(joinDays) * 86400);
-    const challengeDeadline = BigInt(now + (Number(joinDays) + Number(duration)) * 86400);
+    const joinDeadline      = BigInt(now + joinSecs);
+    const challengeDeadline = BigInt(now + joinSecs + durSecs);
     deploy({ challengeType: type, verifier, title, criteria, joinDeadline, challengeDeadline, buyIn });
   };
 
@@ -144,13 +179,11 @@ export default function CreatePage() {
             <div className="col gap-4">
               <div className="field">
                 <label>Challenge title</label>
-                <input className="input" value={title} onChange={e => setTitle(e.target.value)} placeholder="e.g. Run 50km in 7 days" />
+                <input className="input" value={title} onChange={e => setTitle(e.target.value)} placeholder="e.g. Make 30 GitHub commits in a month" />
               </div>
-              <div className="field">
-                <label>Success criteria</label>
-                <textarea className="input" value={criteria} onChange={e => setCriteria(e.target.value)} placeholder="Describe exactly what counts as success…" />
-                <span className="field-hint">This text is stored on-chain and shown to bettors.</span>
-              </div>
+              <div className="dots" />
+              <div className="eyebrow" style={{ marginBottom: 4 }}>Success criteria</div>
+              <CriteriaBuilder verifier={verifier} value={criteria} onChange={setCriteria} />
             </div>
           </>
         )}
@@ -165,16 +198,8 @@ export default function CreatePage() {
                   <input className="input" value={buyIn} onChange={e => setBuyIn(e.target.value)} placeholder="0.10" />
                   <span className="field-hint">{type === "INDIVIDUAL" ? "Your stake — auto-registered as FOR." : "Min stake to join."}</span>
                 </div>
-                <div className="field">
-                  <label>Join window (days)</label>
-                  <input className="input" value={joinDays} onChange={e => setJoinDays(e.target.value)} placeholder="2" />
-                  <span className="field-hint">Betting/joining closes after this.</span>
-                </div>
-                <div className="field">
-                  <label>Challenge duration (days)</label>
-                  <input className="input" value={duration} onChange={e => setDuration(e.target.value)} placeholder="7" />
-                  <span className="field-hint">Starts when join window closes.</span>
-                </div>
+                <TimeInput label="Join window" value={joinVal} onChange={setJoinVal} unit={joinUnit} onUnitChange={setJoinUnit} hint="Betting/joining closes after this." />
+                <TimeInput label="Challenge duration" value={durVal} onChange={setDurVal} unit={durUnit} onUnitChange={setDurUnit} hint="Starts when join window closes." />
               </div>
               <div className="card" style={{ padding: 20, background: "var(--bg)" }}>
                 <div className="eyebrow" style={{ marginBottom: 12 }}>Fee structure</div>
@@ -201,8 +226,8 @@ export default function CreatePage() {
                 ["Title",            title    || "(not set)"],
                 ["Criteria",         criteria || "(not set)"],
                 ["Buy-in",           `${buyIn} ETH`],
-                ["Join window",      `${joinDays} days`],
-                ["Challenge period", `${duration} days`],
+                ["Join window",      `${joinVal} ${joinUnit}`],
+                ["Challenge period", `${durVal} ${durUnit}`],
                 ...(type === "INDIVIDUAL" ? [["AGAINST cap", `${(parseFloat(buyIn || "0") * 5).toFixed(2)} ETH`]] : []),
               ].map(([k, v]) => (
                 <div key={k} className="row" style={{ justifyContent: "space-between", padding: "12px 0", borderBottom: "1px solid var(--line-soft)" }}>
