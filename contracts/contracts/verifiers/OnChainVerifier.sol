@@ -28,6 +28,7 @@ contract OnChainVerifier is IVerifier {
 
     event VerificationRequested(address indexed challengeAddress, address indexed participant);
     event VerdictDelivered(address indexed challengeAddress, address indexed participant, bool passed);
+    event VerificationFailed(address indexed challengeAddress, address indexed participant, bool verdict);
 
     // Called by the challenge during _onVerifyPending.
     // Evaluates the criteria against current on-chain state and delivers the verdict
@@ -48,7 +49,7 @@ contract OnChainVerifier is IVerifier {
         try IChallenge(challengeAddress).receiveVerdict(participant, passed) {
             emit VerdictDelivered(challengeAddress, participant, passed);
         } catch {
-            emit VerdictDelivered(challengeAddress, participant, passed);
+            emit VerificationFailed(challengeAddress, participant, passed);
         }
     }
 
