@@ -8,7 +8,7 @@ import { formatEther } from "viem";
 import { Donut, Sparkline } from "@/components/ui";
 import { BetPanel } from "@/components/BetPanel";
 import { StateIndicator } from "@/components/StateIndicator";
-import { FOR_PROBABILITY_SPARKLINE } from "@/lib/data";
+import { WithdrawCard, BindAccountCard, SettleFallback } from "@/components/ActionCards";
 import { VERIFIER_ICON, VERIFIER_LABEL, TYPE_LABEL, pct, formatEth, timeLeft, multiplier } from "@/lib/utils";
 import { ADDRESSES, FACTORY_ABI } from "@/lib/contracts";
 import { CHALLENGE_TYPE_FROM_NUM, VERIFIER_TYPE_FROM_NUM, type Challenge, type ChallengeType, type ChallengeState, type VerifierType } from "@/lib/types";
@@ -24,6 +24,9 @@ type ChainData = {
   againstPool?: bigint;
   bettorsFor?: bigint;
   bettorsAgainst?: bigint;
+  isRegistered?: boolean;
+  userPending?: bigint;
+  creator?: `0x${string}`;
   isLoading: boolean;
 };
 
@@ -60,6 +63,29 @@ export default function ChallengePage() {
   const title                         = info?.title   ?? "Loading…";
 
   const chainData = useChallenge(challengeAddress, challengeType, userAddress as `0x${string}` | undefined) as ChainData;
+
+  const { data: verdictsData } = useReadContract({
+    address: challengeAddress,
+    abi: [
+      { type: "function", name: "verdictsCompleted", inputs: [], outputs: [{ type: "uint256" }], stateMutability: "view" },
+      { type: "function", name: "verdictsExpected",  inputs: [], outputs: [{ type: "uint256" }], stateMutability: "view" },
+    ] as const,
+    functionName: "verdictsCompleted",
+    query: { enabled: !!challengeAddress && chainData.state === "VERIFY_PENDING" },
+  });
+  const { data: verdictsExpected } = useReadContract({
+    address: challengeAddress,
+    abi: [{ type: "function", name: "verdictsExpected", inputs: [], outputs: [{ type: "uint256" }], stateMutability: "view" }] as const,
+    functionName: "verdictsExpected",
+    query: { enabled: !!challengeAddress && chainData.state === "VERIFY_PENDING" },
+  });
+  const allVerdictsIn = verdictsData !== undefined && verdictsExpected !== undefined && (verdictsData as bigint) >= (verdictsExpected as bigint) && (verdictsExpected as bigint) > BigInt(0);
+
+  const isCreator = userAddress && chainData.creator && userAddress.toLowerCase() === chainData.creator.toLowerCase();
+  const showBindAccount = verifierType === "API_ORACLE" && chainData.state === "JOIN_OPEN" && chainData.isRegistered &&
+    (challengeType !== "INDIVIDUAL" || isCreator);
+  const showSettle = chainData.state === "VERIFY_PENDING" && allVerdictsIn;
+  const showWithdraw = chainData.state === "SETTLED" && chainData.userPending !== undefined && chainData.userPending > BigInt(0);
 
   const forPool    = chainData.forPool     ? parseFloat(formatEther(chainData.forPool))     : 0;
   const againstPool = chainData.againstPool ? parseFloat(formatEther(chainData.againstPool)) : 0;
@@ -109,6 +135,11 @@ export default function ChallengePage() {
           <h1 className="serif" style={{ fontSize: 52, fontWeight: 400, lineHeight: 1.05, letterSpacing: "-0.02em", marginBottom: 16 }}>
             {challenge.title}
           </h1>
+          {showSettle && (
+            <div style={{ marginBottom: 16 }}>
+              <SettleFallback challengeAddress={challengeAddress} />
+            </div>
+          )}
           <div className="row gap-3" style={{ fontSize: 13 }}>
             <span className="avatar sm" />
             <span>by <span style={{ color: "var(--text)" }}>{challenge.creator}</span></span>
@@ -181,7 +212,7 @@ export default function ChallengePage() {
                   <div className="eyebrow">FOR probability · 24h</div>
                 </div>
                 <div style={{ height: 220 }}>
-                  <Sparkline points={FOR_PROBABILITY_SPARKLINE} color="var(--win)" />
+                  <Sparkline points={[]} color="var(--win)" />
                 </div>
               </div>
 
@@ -262,6 +293,20 @@ export default function ChallengePage() {
         </div>
 
         <div className="col gap-4" style={{ position: "sticky", top: 80, alignSelf: "flex-start" }}>
+          {showWithdraw && (
+            <WithdrawCard
+              challengeAddress={challengeAddress}
+              challengeType={challengeType}
+              pendingWei={chainData.userPending!}
+            />
+          )}
+          {showBindAccount && (
+            <BindAccountCard
+              challengeAddress={challengeAddress}
+              challengeType={challengeType}
+              verifierHint="generic"
+            />
+          )}
           <BetPanel challenge={challenge} />
         </div>
       </div>
