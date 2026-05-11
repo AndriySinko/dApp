@@ -17,20 +17,19 @@ describe("Reputation", () => {
             ).to.not.be.reverted;
         });
 
-        it("authorized address can authorize another address", async () => {
+        it("authorized address cannot authorize another address", async () => {
             const { reputation, owner, alice, bob } = await loadFixture(reputationFixture);
             await reputation.connect(owner).authorize(alice.address);
-            await reputation.connect(alice).authorize(bob.address); // chain auth
             await expect(
-                reputation.connect(bob).updateRep(bob.address, 10n, ethers.ZeroAddress),
-            ).to.not.be.reverted;
+                reputation.connect(alice).authorize(bob.address),
+            ).to.be.revertedWithCustomError(reputation, "OwnableUnauthorizedAccount");
         });
 
         it("reverts when called by an unauthorized non-owner", async () => {
             const { reputation, alice, bob } = await loadFixture(reputationFixture);
             await expect(
                 reputation.connect(alice).authorize(bob.address),
-            ).to.be.revertedWith("Not permitted");
+            ).to.be.revertedWithCustomError(reputation, "OwnableUnauthorizedAccount");
         });
 
         it("reverts for zero address", async () => {

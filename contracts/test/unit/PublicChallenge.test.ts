@@ -34,6 +34,7 @@ describe("PublicChallenge", () => {
                 await verifier.getAddress(),
                 await reputation.getAddress(),
                 await treasury.getAddress(),
+                owner.address,
                 { value: 0n },
             )).to.be.revertedWith("Prize pool required");
         });
@@ -160,14 +161,14 @@ describe("PublicChallenge", () => {
         });
     });
 
-    // ── reclaimPrizePool ─────────────────────────────────────────────────────
+    // ── returnPrizePoolToTreasury ─────────────────────────────────────────────────────
 
-    describe("reclaimPrizePool", () => {
+    describe("returnPrizePoolToTreasury", () => {
         it("creator can reclaim prize when Active, no participants, past deadline", async () => {
             const { challenge, treasury, joinDl, challengeDl } = await loadFixture(publicFixture);
             await advanceToActive(challenge, joinDl);
             await time.increaseTo(challengeDl + 1);
-            await challenge.reclaimPrizePool();
+            await challenge.returnPrizePoolToTreasury();
             expect(await challenge.state()).to.equal(3); // Settled
             expect(await challenge.prizePool()).to.equal(0n);
             expect(await treasury.totalDeposited()).to.equal(TWO_ETH);
@@ -177,12 +178,12 @@ describe("PublicChallenge", () => {
             const { challenge, alice, joinDl, challengeDl } = await loadFixture(publicFixture);
             await advanceToActive(challenge, joinDl);
             await time.increaseTo(challengeDl + 1);
-            await expect(challenge.connect(alice).reclaimPrizePool()).to.be.revertedWith("Only creator");
+            await expect(challenge.connect(alice).returnPrizePoolToTreasury()).to.be.revertedWith("Only creator");
         });
 
         it("reverts when state is not Active (still JoinOpen)", async () => {
             const { challenge } = await loadFixture(publicFixture);
-            await expect(challenge.reclaimPrizePool()).to.be.revertedWith("Not in Active state");
+            await expect(challenge.returnPrizePoolToTreasury()).to.be.revertedWith("Not in Active state");
         });
 
         it("reverts when participants have joined", async () => {
@@ -190,14 +191,14 @@ describe("PublicChallenge", () => {
             await challenge.connect(alice).join({ value: ONE_ETH });
             await advanceToActive(challenge, joinDl);
             await time.increaseTo(challengeDl + 1);
-            await expect(challenge.reclaimPrizePool()).to.be.revertedWith("Participants exist");
+            await expect(challenge.returnPrizePoolToTreasury()).to.be.revertedWith("Participants exist");
         });
 
         it("reverts before challenge deadline", async () => {
             const { challenge, joinDl } = await loadFixture(publicFixture);
             await advanceToActive(challenge, joinDl);
             // still before challengeDl
-            await expect(challenge.reclaimPrizePool()).to.be.revertedWith("Challenge not over");
+            await expect(challenge.returnPrizePoolToTreasury()).to.be.revertedWith("Challenge not over");
         });
     });
 

@@ -48,6 +48,7 @@ describe("IndividualChallenge", () => {
                 0n,                             // zero buy-in
                 0, await verifier.getAddress(),
                 await reputation.getAddress(), await treasury.getAddress(),
+                owner.address,
                 { value: 0n },
             )).to.be.revertedWith("Buy-in must be positive");
         });
@@ -61,6 +62,7 @@ describe("IndividualChallenge", () => {
                 now + JOIN_WINDOW, now + ACTIVE_WINDOW,
                 ONE_ETH, 0, await verifier.getAddress(),
                 await reputation.getAddress(), await treasury.getAddress(),
+                owner.address,
                 { value: ONE_ETH / 2n },        // wrong value
             )).to.be.revertedWith("Must send exact buy-in");
         });
@@ -74,6 +76,7 @@ describe("IndividualChallenge", () => {
                 past, past + 100,
                 ONE_ETH, 0, await verifier.getAddress(),
                 await reputation.getAddress(), await treasury.getAddress(),
+                owner.address,
                 { value: ONE_ETH },
             )).to.be.revertedWith("Join deadline must be in the future");
         });
@@ -87,6 +90,7 @@ describe("IndividualChallenge", () => {
                 now + 3600, now + 3600,         // equal deadlines
                 ONE_ETH, 0, await verifier.getAddress(),
                 await reputation.getAddress(), await treasury.getAddress(),
+                owner.address,
                 { value: ONE_ETH },
             )).to.be.revertedWith("Join deadline must precede challenge deadline");
         });
@@ -99,7 +103,7 @@ describe("IndividualChallenge", () => {
             const { challenge, alice } = await loadFixture(individualFixture);
             await challenge.connect(alice).placeBet(true, { value: ONE_ETH });
             expect(await challenge.forPool()).to.equal(ONE_ETH * 2n);
-            expect(await challenge.bettorsFor()).to.equal(1n);
+            expect(await challenge.bettorsFor()).to.equal(2n); // creator(1) + alice(1)
         });
 
         it("accepts an AGAINST bet below the cap", async () => {

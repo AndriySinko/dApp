@@ -34,6 +34,7 @@ describe("GroupChallenge", () => {
                 await verifier.getAddress(),
                 await reputation.getAddress(),
                 await treasury.getAddress(),
+                owner.address,
             )).to.be.revertedWith("Buy-in must be positive");
         });
 
@@ -48,6 +49,7 @@ describe("GroupChallenge", () => {
                 await verifier.getAddress(),
                 await reputation.getAddress(),
                 await treasury.getAddress(),
+                owner.address,
             )).to.be.revertedWith("Join deadline must precede challenge deadline");
         });
 
@@ -62,6 +64,7 @@ describe("GroupChallenge", () => {
                 ethers.ZeroAddress,
                 await reputation.getAddress(),
                 await treasury.getAddress(),
+                owner.address,
             )).to.be.revertedWith("Invalid verifier");
         });
     });

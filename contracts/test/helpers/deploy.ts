@@ -64,9 +64,11 @@ export async function individualFixture() {
         await verifier.getAddress(),
         await reputation.getAddress(),
         await treasury.getAddress(),
+        owner.address,                   // factory = owner in tests
         { value: buyIn },
     );
 
+    await challenge.connect(owner).setUpkeepRegistered();
     return { ...mocks, challenge, joinDl, challengeDl, buyIn };
 }
 
@@ -91,7 +93,9 @@ export async function groupFixture() {
         await verifier.getAddress(),
         await reputation.getAddress(),
         await treasury.getAddress(),
+        owner.address,                   // factory = owner in tests
     );
+    await challenge.connect(owner).setUpkeepRegistered();
 
     return { ...mocks, challenge, joinDl, challengeDl, buyIn };
 }
@@ -118,8 +122,10 @@ export async function publicFixture() {
         await verifier.getAddress(),
         await reputation.getAddress(),
         await treasury.getAddress(),
+        owner.address,                   // factory = owner in tests
         { value: prizePool },
     );
+    await challenge.connect(owner).setUpkeepRegistered();
 
     return { ...mocks, challenge, joinDl, challengeDl, buyIn, prizePool };
 }
@@ -135,6 +141,7 @@ export async function reputationFixture() {
 export async function treasuryFixture() {
     const [owner, alice, bob] = await ethers.getSigners();
     const treasury = await new Treasury__factory(owner).deploy(owner.address);
+    await treasury.connect(owner).authorize(owner.address);
     return { owner, alice, bob, treasury };
 }
 
