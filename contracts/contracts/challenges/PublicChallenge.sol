@@ -27,18 +27,19 @@ contract PublicChallenge is GroupChallenge {
         _prizePool = msg.value;
     }
 
-    function settle() public virtual override {
+    function settle() public virtual override nonReentrant {
         require(_state == ChallengeState.VerifyPending, "Not ready to settle");
         require(_verdictsCompleted == _participants.length, "Not all verdicts received");
 
         _state = ChallengeState.Settled;
 
+        uint256 pLen = _participants.length;
         uint256 winnersCount;
         uint256 losersCount;
         uint256 totalWinnerStake;
         uint256 loserPot;
 
-        for (uint256 i = 0; i < _participants.length; i++) {
+        for (uint256 i = 0; i < pLen; i++) {
             address p = _participants[i];
             if (_verdicts[p]) {
                 winnersCount++;
@@ -49,33 +50,41 @@ contract PublicChallenge is GroupChallenge {
             }
         }
 
-        // All lose → stakes + prize pool → Treasury
+        address[] memory repUsers  = new address[](pLen);
+        int256[]  memory repDeltas = new int256[](pLen);
+        uint256 repCount;
+
+        // All lose
         if (winnersCount == 0) {
             uint256 totalPool = loserPot + _prizePool;
             if (totalPool > 0) {
                 ITreasury(treasuryAddress).depositFee{value: totalPool}();
             }
-            for (uint256 i = 0; i < _participants.length; i++) {
+            for (uint256 i = 0; i < pLen; i++) {
                 address p = _participants[i];
                 emit ParticipantSettled(p, false, 0, -int256(_stakes[p]));
-                IReputation(reputationAddress).updateRep(p, -50, address(this));
+                repUsers[repCount] = p; repDeltas[repCount] = -50; repCount++;
             }
+            assembly { mstore(repUsers, repCount) mstore(repDeltas, repCount) }
+            IReputation(reputationAddress).batchUpdateRep(repUsers, repDeltas, address(this));
             emit Settled(0, losersCount, 0, totalPool, block.timestamp);
             return;
         }
 
-        // All win → everyone gets stake back + flat prize bonus, no fee
+        // All win
         if (losersCount == 0) {
             uint256 prizeBonus = _prizePool / winnersCount;
             uint256 totalDistributed;
-            for (uint256 i = 0; i < _participants.length; i++) {
+            for (uint256 i = 0; i < pLen; i++) {
                 address p = _participants[i];
                 uint256 payout = _stakes[p] + prizeBonus;
                 pendingWithdrawals[p] += payout;
                 totalDistributed      += payout;
                 emit ParticipantSettled(p, true, payout, int256(prizeBonus));
-                IReputation(reputationAddress).updateRep(p, 100, address(this));
+                repUsers[repCount] = p; repDeltas[repCount] = 100; repCount++;
             }
+            assembly { mstore(repUsers, repCount) mstore(repDeltas, repCount) }
+            IReputation(reputationAddress).batchUpdateRep(repUsers, repDeltas, address(this));
             uint256 dust = _prizePool - prizeBonus * winnersCount;
             if (dust > 0) {
                 ITreasury(treasuryAddress).depositFee{value: dust}();
@@ -84,10 +93,10 @@ contract PublicChallenge is GroupChallenge {
             return;
         }
 
-        // Normal: winners split loser pot proportionally (no fee) + flat prize bonus
-        uint256 prizeBonus    = _prizePool / winnersCount;
+        // Mixed
+        uint256 prizeBonus = _prizePool / winnersCount;
         uint256 totalDistributed;
-        for (uint256 i = 0; i < _participants.length; i++) {
+        for (uint256 i = 0; i < pLen; i++) {
             address p = _participants[i];
             if (_verdicts[p]) {
                 uint256 groupWinnings = (_stakes[p] * loserPot) / totalWinnerStake;
@@ -95,14 +104,16 @@ contract PublicChallenge is GroupChallenge {
                 pendingWithdrawals[p] += payout;
                 totalDistributed      += payout;
                 emit ParticipantSettled(p, true, payout, int256(groupWinnings + prizeBonus));
-                IReputation(reputationAddress).updateRep(p, 100, address(this));
+                repUsers[repCount] = p; repDeltas[repCount] = 100; repCount++;
             } else {
                 emit ParticipantSettled(p, false, 0, -int256(_stakes[p]));
-                IReputation(reputationAddress).updateRep(p, -50, address(this));
+                repUsers[repCount] = p; repDeltas[repCount] = -50; repCount++;
             }
         }
 
-        // Dust from integer division on both loserPot and prizePool splits → Treasury
+        assembly { mstore(repUsers, repCount) mstore(repDeltas, repCount) }
+        IReputation(reputationAddress).batchUpdateRep(repUsers, repDeltas, address(this));
+
         uint256 dust = (totalWinnerStake + loserPot + _prizePool) - totalDistributed;
         if (dust > 0) {
             ITreasury(treasuryAddress).depositFee{value: dust}();
@@ -111,12 +122,10 @@ contract PublicChallenge is GroupChallenge {
         emit Settled(winnersCount, losersCount, totalDistributed, dust, block.timestamp);
     }
 
-    // If challenge deadline passes with no participants, prize pool would be locked
-    // forever because _onVerifyPending reverts. This allows governance to reclaim it.
-    function reclaimPrizePool() external {
-        require(msg.sender == _creator,             "Only creator");
-        require(_state == ChallengeState.Active,    "Not in Active state");
-        require(_participants.length == 0,          "Participants exist");
+    function returnPrizePoolToTreasury() external {
+        require(msg.sender == _creator,               "Only creator");
+        require(_state == ChallengeState.Active,      "Not in Active state");
+        require(_participants.length == 0,            "Participants exist");
         require(block.timestamp > _challengeDeadline, "Challenge not over");
 
         _state = ChallengeState.Settled;

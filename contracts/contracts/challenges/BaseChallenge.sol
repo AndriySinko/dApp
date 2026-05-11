@@ -19,6 +19,9 @@ abstract contract BaseChallenge is IChallenge, AutomationCompatibleInterface {
     address reputationAddress;
     address treasuryAddress;
 
+    // set by factory after registering upkeep; blocks performUpkeep until then
+    bool public upkeepRegistered;
+
     modifier onlyVerifier() {
         require(msg.sender == verifierAddress, "Only verifier can call");
         _;
@@ -77,6 +80,7 @@ abstract contract BaseChallenge is IChallenge, AutomationCompatibleInterface {
     }
 
     function performUpkeep(bytes calldata) external virtual {
+        require(upkeepRegistered, "Upkeep not registered");
         if (_state == ChallengeState.JoinOpen && block.timestamp >= _joinDeadline) {
             _state = ChallengeState.Active;
             emit StateChanged(ChallengeState.JoinOpen, ChallengeState.Active, block.timestamp);
@@ -87,6 +91,10 @@ abstract contract BaseChallenge is IChallenge, AutomationCompatibleInterface {
         } else {
             revert("Upkeep not needed");
         }
+    }
+
+    function setUpkeepRegistered() external override {
+        upkeepRegistered = true;
     }
 
     // Child contracts override this to call requestVerification per participant
@@ -103,6 +111,8 @@ abstract contract BaseChallenge is IChallenge, AutomationCompatibleInterface {
     function submitEvidence(string calldata ipfsCid, bytes32 nonce) external onlyRegistered {
         require(_state == ChallengeState.Active, "Can only submit evidence during Active");
         uint256 day = (block.timestamp - _joinDeadline) / 1 days;
+        bytes32 expectedNonce = keccak256(abi.encodePacked(address(this), day));
+        require(nonce == expectedNonce, "Invalid nonce");
         _evidence[msg.sender].push(Evidence({
             day: day,
             ipfsCid: ipfsCid,
@@ -125,8 +135,6 @@ abstract contract BaseChallenge is IChallenge, AutomationCompatibleInterface {
     function getDaysComplete(address participant) external view returns (uint256) {
         Evidence[] storage evidence = _evidence[participant];
         if (evidence.length == 0) return 0;
-        // block.timestamp is non-decreasing so days in the array are non-decreasing;
-        // count transitions to get unique day count
         uint256 uniqueDays = 1;
         uint256 lastDay = evidence[0].day;
         for (uint256 i = 1; i < evidence.length; i++) {

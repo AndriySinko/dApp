@@ -5,10 +5,10 @@ import "./BaseChallenge.sol";
 import "../interfaces/IVerifier.sol";
 import "../interfaces/IReputation.sol";
 import "../interfaces/ITreasury.sol";
+import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 
-contract IndividualChallenge is BaseChallenge {
+contract IndividualChallenge is BaseChallenge, ReentrancyGuard {
     uint256 constant MAX_AGAINST_MULTIPLIER = 5;
-    uint256 constant MAX_PAYOUT_MULTIPLIER  = 2;
 
     uint256 _forPool;
     uint256 _againstPool;
@@ -42,10 +42,14 @@ contract IndividualChallenge is BaseChallenge {
         address repAddress,
         address treasAddress
     ) payable {
-        require(buyInAmt > 0,          "Buy-in must be positive");
-        require(msg.value == buyInAmt, "Must send exact buy-in");
-        require(block.timestamp < joinDl, "Join deadline must be in the future");
-        require(joinDl < challengeDl,     "Join deadline must precede challenge deadline");
+        require(buyInAmt > 0,              "Buy-in must be positive");
+        require(msg.value == buyInAmt,     "Must send exact buy-in");
+        require(block.timestamp < joinDl,  "Join deadline must be in the future");
+        require(joinDl < challengeDl,      "Join deadline must precede challenge deadline");
+        require(creatorAddr != address(0), "Zero creator");
+        require(vAddress    != address(0), "Zero verifier");
+        require(repAddress  != address(0), "Zero reputation");
+        require(treasAddress != address(0),"Zero treasury");
 
         challengeId        = id;
         _creator           = creatorAddr;
@@ -60,12 +64,12 @@ contract IndividualChallenge is BaseChallenge {
         treasuryAddress    = treasAddress;
         _state             = ChallengeState.JoinOpen;
 
-        // Creator's buy-in counts as a FOR bet on themselves
         _participants.push(creatorAddr);
         _isRegistered[creatorAddr] = true;
         _stakes[creatorAddr]       = buyInAmt;
         bets[creatorAddr]          = Bet({amount: buyInAmt, side: true});
         _forPool                   = buyInAmt;
+        _bettorsFor                = 1;
 
         emit ParticipantRegistered(creatorAddr, buyInAmt, block.timestamp);
     }
@@ -84,10 +88,8 @@ contract IndividualChallenge is BaseChallenge {
         require(msg.value > 0, "Must send ETH");
 
         if (side) {
-            // FOR bettors must meet the minimum stake
             require(msg.value >= _buyIn, "FOR bet below minimum buy-in");
         } else {
-            // Constraint 1: cap total AGAINST pool at buyIn × MAX_AGAINST_MULTIPLIER
             require(
                 _againstPool + msg.value <= _buyIn * MAX_AGAINST_MULTIPLIER,
                 "AGAINST pool cap reached"
@@ -115,7 +117,7 @@ contract IndividualChallenge is BaseChallenge {
         return _verdictReceived[_creator];
     }
 
-    function settle() public override {
+    function settle() public override nonReentrant {
         require(_state == ChallengeState.VerifyPending, "Not in VerifyPending");
         require(_verdictReceived[_creator], "Creator verdict not received");
 
@@ -128,7 +130,6 @@ contract IndividualChallenge is BaseChallenge {
         }
     }
 
-    // Creator passed — FOR side wins
     function _settleForWins() private {
         uint256 fee       = (_againstPool * 2) / 100;
         uint256 winnerPot = _againstPool - fee;
@@ -141,14 +142,18 @@ contract IndividualChallenge is BaseChallenge {
         uint256 winnersCount;
         uint256 losersCount;
 
-        // Creator always wins on FOR side
+        uint256 pLen = bettorList.length + 1;
+        address[] memory repUsers  = new address[](pLen);
+        int256[]  memory repDeltas = new int256[](pLen);
+        uint256 repCount;
+
         uint256 creatorWinnings = (_buyIn * winnerPot) / _forPool;
         uint256 creatorPayout   = _buyIn + creatorWinnings;
         pendingWithdrawals[_creator] += creatorPayout;
         totalDistributed += creatorPayout;
         winnersCount++;
         emit ParticipantSettled(_creator, true, creatorPayout, int256(creatorWinnings));
-        IReputation(reputationAddress).updateRep(_creator, 100, address(this));
+        repUsers[repCount] = _creator; repDeltas[repCount] = 100; repCount++;
 
         for (uint256 i = 0; i < bettorList.length; i++) {
             address p = bettorList[i];
@@ -159,23 +164,23 @@ contract IndividualChallenge is BaseChallenge {
                 totalDistributed += payout;
                 winnersCount++;
                 emit ParticipantSettled(p, true, payout, int256(winnings));
-                IReputation(reputationAddress).updateRep(p, 25, address(this));
+                repUsers[repCount] = p; repDeltas[repCount] = 25; repCount++;
             } else {
                 losersCount++;
                 emit ParticipantSettled(p, false, 0, -int256(_stakes[p]));
             }
         }
 
+        assembly { mstore(repUsers, repCount) mstore(repDeltas, repCount) }
+        IReputation(reputationAddress).batchUpdateRep(repUsers, repDeltas, address(this));
+
         emit Settled(winnersCount, losersCount, totalDistributed, fee, block.timestamp);
     }
 
-    // Creator failed — AGAINST side wins
     function _settleAgainstWins() private {
         uint256 fee             = (_forPool * 2) / 100;
         uint256 grossWinnerPot  = _forPool - fee;
 
-        // Constraint 2: cap AGAINST payout at MAX_PAYOUT_MULTIPLIER (2)× stake
-        // max profit per bettor = 1× their stake → cap the shared pot at againstPool total
         uint256 cappedWinnerPot = grossWinnerPot < _againstPool
             ? grossWinnerPot
             : _againstPool;
@@ -189,10 +194,14 @@ contract IndividualChallenge is BaseChallenge {
         uint256 winnersCount;
         uint256 losersCount;
 
-        // Creator always loses
+        uint256 pLen = bettorList.length + 1;
+        address[] memory repUsers  = new address[](pLen);
+        int256[]  memory repDeltas = new int256[](pLen);
+        uint256 repCount;
+
         losersCount++;
         emit ParticipantSettled(_creator, false, 0, -int256(_buyIn));
-        IReputation(reputationAddress).updateRep(_creator, -50, address(this));
+        repUsers[repCount] = _creator; repDeltas[repCount] = -50; repCount++;
 
         for (uint256 i = 0; i < bettorList.length; i++) {
             address p = bettorList[i];
@@ -205,17 +214,20 @@ contract IndividualChallenge is BaseChallenge {
                 totalDistributed += payout;
                 winnersCount++;
                 emit ParticipantSettled(p, true, payout, int256(winnings));
-                IReputation(reputationAddress).updateRep(p, 25, address(this));
+                repUsers[repCount] = p; repDeltas[repCount] = 25; repCount++;
             } else {
                 losersCount++;
                 emit ParticipantSettled(p, false, 0, -int256(_stakes[p]));
             }
         }
 
+        assembly { mstore(repUsers, repCount) mstore(repDeltas, repCount) }
+        IReputation(reputationAddress).batchUpdateRep(repUsers, repDeltas, address(this));
+
         emit Settled(winnersCount, losersCount, totalDistributed, fee + overflow, block.timestamp);
     }
 
-    function withdraw() external {
+    function withdraw() external nonReentrant {
         uint256 amount = pendingWithdrawals[msg.sender];
         require(amount > 0, "Nothing to withdraw");
         pendingWithdrawals[msg.sender] = 0;
