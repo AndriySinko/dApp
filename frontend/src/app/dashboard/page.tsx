@@ -17,7 +17,7 @@ export default function DashboardPage() {
 
   const { challenges, isLoading } = useSquidChallenges();
 
-  const filtered = challenges.filter(c => {
+  const filtered = challenges.filter((c: typeof challenges[0]) => {
     if (stateFilter === "Live"    && !LIVE_STATES.includes(c.state)) return false;
     if (stateFilter === "Settled" && c.state !== "SETTLED")          return false;
     if (typeFilter  !== "Any type" && c.type !== typeFilter)          return false;

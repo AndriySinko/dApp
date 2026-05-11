@@ -1,18 +1,25 @@
 "use client";
 
-import { useAccount, useConnect, useDisconnect } from "wagmi";
-import { injected } from "wagmi/connectors";
+import { useEffect, useState } from "react";
+import { useAccount, useDisconnect } from "wagmi";
+import { WalletModal } from "./WalletModal";
 
 export function ConnectWallet() {
   const { address, isConnected } = useAccount();
-  const { connect } = useConnect();
   const { disconnect } = useDisconnect();
+  const [mounted, setMounted] = useState(false);
+  const [showModal, setShowModal] = useState(false);
 
-  if (!isConnected || !address) {
+  useEffect(() => { setMounted(true); }, []);
+
+  if (!mounted || !isConnected || !address) {
     return (
-      <button className="btn primary sm" onClick={() => connect({ connector: injected() })}>
-        Connect wallet
-      </button>
+      <>
+        <button className="btn primary sm" onClick={() => setShowModal(true)}>
+          Connect wallet
+        </button>
+        {showModal && <WalletModal onClose={() => setShowModal(false)} />}
+      </>
     );
   }
 
