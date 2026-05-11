@@ -8,7 +8,7 @@ import "../interfaces/ITreasury.sol";
 import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 
 contract IndividualChallenge is BaseChallenge, ReentrancyGuard {
-    uint256 constant MAX_AGAINST_MULTIPLIER = 5;
+    uint256 constant MAX_AGAINST_MULTIPLIER  = 5;
 
     uint256 _forPool;
     uint256 _againstPool;

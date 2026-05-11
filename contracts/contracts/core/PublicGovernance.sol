@@ -6,6 +6,8 @@ import "../interfaces/IReputation.sol";
 import "../interfaces/ITreasury.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 
 interface IFactory {
     function createChallenge(
@@ -19,16 +21,18 @@ interface IFactory {
     ) external payable returns (address);
 }
 
-contract PublicGovernance is Ownable {
+contract PublicGovernance is Ownable, ReentrancyGuard {
+    using SafeERC20 for IERC20;
+
     uint256 private constant UPKEEP_FUNDING = 2e18;
 
     struct Proposal {
         string       title;
         string       description;
         VerifierType verifier;
-        uint256      durationDays;    // becomes challengeDeadline - joinDeadline
-        uint256      joinDays;        // how long JOIN_OPEN lasts
-        uint256      minStake;        // buyIn for the resulting PublicChallenge
+        uint256      durationDays;
+        uint256      joinDays;
+        uint256      minStake;
         uint256      votes;
         uint256      voters;
     }
@@ -37,9 +41,8 @@ contract PublicGovernance is Ownable {
     uint256    _currentEpoch;
     uint256    _epochEnd;
     uint256    _epochDuration;
-    uint256    public prizePerEpoch;   // ETH pulled from Treasury for each winning challenge
+    uint256    public prizePerEpoch;
 
-    // Tracks who voted this epoch so we can clear their flags in tickEpoch
     address[]              _votersThisEpoch;
     mapping(address => bool) _hasVotedThisEpoch;
 
@@ -69,9 +72,11 @@ contract PublicGovernance is Ownable {
         uint256 epoch,
         uint256 winningProposalIndex,
         string  winningTitle,
-        address publicChallengeAddress,
+        address indexed publicChallengeAddress,
         uint256 prizePool
     );
+
+    event PrizePerEpochUpdated(uint256 newAmount);
 
     constructor(
         address _reputationAddress,
@@ -81,6 +86,11 @@ contract PublicGovernance is Ownable {
         uint256 epochDuration,
         address initialOwner
     ) Ownable(initialOwner) {
+        require(_reputationAddress != address(0), "Zero reputation");
+        require(_treasuryAddress   != address(0), "Zero treasury");
+        require(_factoryAddress    != address(0), "Zero factory");
+        require(_linkToken         != address(0), "Zero link token");
+
         reputationAddress = _reputationAddress;
         treasuryAddress   = _treasuryAddress;
         factoryAddress    = _factoryAddress;
@@ -90,14 +100,13 @@ contract PublicGovernance is Ownable {
         _epochEnd         = block.timestamp + epochDuration;
     }
 
-    // Required so Treasury can push ETH here during withdrawPrizePool in tickEpoch.
     receive() external payable {}
 
     function setPrizePerEpoch(uint256 amount) external onlyOwner {
         prizePerEpoch = amount;
+        emit PrizePerEpochUpdated(amount);
     }
 
-    // Only the protocol owner creates proposals; community votes on them.
     function propose(
         string calldata title,
         string calldata description,
@@ -143,27 +152,27 @@ contract PublicGovernance is Ownable {
         emit Voted(msg.sender, proposalIndex, weight, _proposals[proposalIndex].votes);
     }
 
-    // Callable by anyone once epochEnd has passed.
-    function tickEpoch() external {
+    function tickEpoch() external nonReentrant {
         require(block.timestamp >= _epochEnd,  "Epoch not ended yet");
         require(_proposals.length > 0,         "No proposals this epoch");
         require(prizePerEpoch > 0,             "Prize pool per epoch not set");
 
-        // Find winning proposal (most votes; first proposal wins ties)
+        uint256 pLen = _proposals.length;
         uint256 winningVotes;
         uint256 winningIndex;
-        for (uint256 i = 0; i < _proposals.length; i++) {
+        for (uint256 i = 0; i < pLen; i++) {
             if (_proposals[i].votes > winningVotes) {
                 winningVotes = _proposals[i].votes;
                 winningIndex = i;
             }
         }
 
+        require(winningVotes > 0, "No votes cast this epoch");
+
         Proposal memory winner = _proposals[winningIndex];
 
-        // Pull prize pool ETH from Treasury and approve factory to spend LINK from this contract
         ITreasury(treasuryAddress).withdrawPrizePool(address(this), prizePerEpoch);
-        IERC20(linkToken).approve(factoryAddress, UPKEEP_FUNDING);
+        IERC20(linkToken).safeIncreaseAllowance(factoryAddress, UPKEEP_FUNDING);
 
         uint256 joinDeadline      = block.timestamp + winner.joinDays * 1 days;
         uint256 challengeDeadline = joinDeadline + winner.durationDays * 1 days;
@@ -178,15 +187,16 @@ contract PublicGovernance is Ownable {
             winner.minStake
         );
 
+        IERC20(linkToken).safeDecreaseAllowance(factoryAddress, IERC20(linkToken).allowance(address(this), factoryAddress));
+
         emit EpochTicked(_currentEpoch, winningIndex, winner.title, publicChallengeAddress, prizePerEpoch);
 
-        // Reset proposals and advance epoch
         delete _proposals;
         _currentEpoch += 1;
         _epochEnd = block.timestamp + _epochDuration;
 
-        // Clear per-epoch voter flags using the tracked voter list
-        for (uint256 i = 0; i < _votersThisEpoch.length; i++) {
+        uint256 vLen = _votersThisEpoch.length;
+        for (uint256 i = 0; i < vLen; i++) {
             delete _hasVotedThisEpoch[_votersThisEpoch[i]];
         }
         delete _votersThisEpoch;
