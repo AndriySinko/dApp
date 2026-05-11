@@ -17,11 +17,12 @@ contract PublicChallenge is GroupChallenge {
         VerifierType vType,
         address vAddress,
         address repAddress,
-        address treasAddress
+        address treasAddress,
+        address factoryAddr
     ) payable GroupChallenge(
         id, creatorAddr, titleStr, criteriaStr,
         joinDl, challengeDl, buyInAmt,
-        vType, vAddress, repAddress, treasAddress
+        vType, vAddress, repAddress, treasAddress, factoryAddr
     ) {
         require(msg.value > 0, "Prize pool required");
         _prizePool = msg.value;
@@ -73,23 +74,23 @@ contract PublicChallenge is GroupChallenge {
 
         // All win
         if (losersCount == 0) {
-            uint256 prizeBonus = _prizePool / winnersCount;
-            uint256 totalDistributed;
+            uint256 allWinBonus = _prizePool / winnersCount;
+            uint256 allWinDistributed;
             for (uint256 i = 0; i < pLen; i++) {
                 address p = _participants[i];
-                uint256 payout = _stakes[p] + prizeBonus;
+                uint256 payout = _stakes[p] + allWinBonus;
                 pendingWithdrawals[p] += payout;
-                totalDistributed      += payout;
-                emit ParticipantSettled(p, true, payout, int256(prizeBonus));
+                allWinDistributed     += payout;
+                emit ParticipantSettled(p, true, payout, int256(allWinBonus));
                 repUsers[repCount] = p; repDeltas[repCount] = 100; repCount++;
             }
             assembly { mstore(repUsers, repCount) mstore(repDeltas, repCount) }
             IReputation(reputationAddress).batchUpdateRep(repUsers, repDeltas, address(this));
-            uint256 dust = _prizePool - prizeBonus * winnersCount;
-            if (dust > 0) {
-                ITreasury(treasuryAddress).depositFee{value: dust}();
+            uint256 allWinDust = _prizePool - allWinBonus * winnersCount;
+            if (allWinDust > 0) {
+                ITreasury(treasuryAddress).depositFee{value: allWinDust}();
             }
-            emit Settled(winnersCount, 0, totalDistributed, dust, block.timestamp);
+            emit Settled(winnersCount, 0, allWinDistributed, allWinDust, block.timestamp);
             return;
         }
 

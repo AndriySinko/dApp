@@ -40,7 +40,8 @@ contract IndividualChallenge is BaseChallenge, ReentrancyGuard {
         VerifierType vType,
         address vAddress,
         address repAddress,
-        address treasAddress
+        address treasAddress,
+        address factoryAddr
     ) payable {
         require(buyInAmt > 0,              "Buy-in must be positive");
         require(msg.value == buyInAmt,     "Must send exact buy-in");
@@ -63,6 +64,7 @@ contract IndividualChallenge is BaseChallenge, ReentrancyGuard {
         reputationAddress  = repAddress;
         treasuryAddress    = treasAddress;
         _state             = ChallengeState.JoinOpen;
+        _factory           = factoryAddr;
 
         _participants.push(creatorAddr);
         _isRegistered[creatorAddr] = true;

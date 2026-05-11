@@ -20,7 +20,8 @@ abstract contract BaseChallenge is IChallenge, AutomationCompatibleInterface {
     address treasuryAddress;
 
     // set by factory after registering upkeep; blocks performUpkeep until then
-    bool public upkeepRegistered;
+    bool    public upkeepRegistered;
+    address internal _factory;
 
     modifier onlyVerifier() {
         require(msg.sender == verifierAddress, "Only verifier can call");
@@ -94,6 +95,7 @@ abstract contract BaseChallenge is IChallenge, AutomationCompatibleInterface {
     }
 
     function setUpkeepRegistered() external override {
+        require(msg.sender == _factory, "Only factory");
         upkeepRegistered = true;
     }
 

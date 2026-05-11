@@ -21,14 +21,15 @@ contract GroupChallenge is BaseChallenge, ReentrancyGuard {
         VerifierType vType,
         address vAddress,
         address repAddress,
-        address treasAddress
+        address treasAddress,
+        address factoryAddr
     ) {
         require(buyInAmt > 0,              "Buy-in must be positive");
         require(block.timestamp < joinDl,  "Join deadline must be in the future");
         require(joinDl < challengeDl,      "Join deadline must precede challenge deadline");
-        require(vAddress     != address(0), "Zero verifier");
-        require(repAddress   != address(0), "Zero reputation");
-        require(treasAddress != address(0), "Zero treasury");
+        require(vAddress     != address(0), "Invalid verifier");
+        require(repAddress   != address(0), "Invalid reputation");
+        require(treasAddress != address(0), "Invalid treasury");
 
         challengeId        = id;
         _creator           = creatorAddr;
@@ -42,6 +43,7 @@ contract GroupChallenge is BaseChallenge, ReentrancyGuard {
         reputationAddress  = repAddress;
         treasuryAddress    = treasAddress;
         _state             = ChallengeState.JoinOpen;
+        _factory           = factoryAddr;
     }
 
     function _onVerifyPending() internal virtual override {
@@ -115,17 +117,17 @@ contract GroupChallenge is BaseChallenge, ReentrancyGuard {
 
         // All win
         if (losersCount == 0) {
-            uint256 totalDistributed;
+            uint256 allWinDistributed;
             for (uint256 i = 0; i < pLen; i++) {
                 address p = _participants[i];
                 pendingWithdrawals[p] += _stakes[p];
-                totalDistributed      += _stakes[p];
+                allWinDistributed     += _stakes[p];
                 emit ParticipantSettled(p, true, _stakes[p], 0);
                 repUsers[repCount] = p; repDeltas[repCount] = 100; repCount++;
             }
             assembly { mstore(repUsers, repCount) mstore(repDeltas, repCount) }
             IReputation(reputationAddress).batchUpdateRep(repUsers, repDeltas, address(this));
-            emit Settled(winnersCount, 0, totalDistributed, 0, block.timestamp);
+            emit Settled(winnersCount, 0, allWinDistributed, 0, block.timestamp);
             return;
         }
 

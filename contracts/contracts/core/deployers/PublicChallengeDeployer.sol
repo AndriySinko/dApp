@@ -34,7 +34,7 @@ contract PublicChallengeDeployer {
         return address(new PublicChallenge{value: msg.value}(
             id, creatorAddr, titleStr, criteriaStr,
             joinDl, challengeDl, buyInAmt,
-            vType, vAddress, repAddress, treasAddress
+            vType, vAddress, repAddress, treasAddress, factory
         ));
     }
 }
