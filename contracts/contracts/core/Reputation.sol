@@ -13,11 +13,6 @@ contract Reputation is Ownable, IReputation {
         _;
     }
 
-    modifier onlyOwnerOrAuthorized() {
-        require(msg.sender == owner() || authorized[msg.sender], "Not permitted");
-        _;
-    }
-
     event ReputationUpdated(
         address indexed user,
         int256  delta,
@@ -28,7 +23,7 @@ contract Reputation is Ownable, IReputation {
 
     constructor(address initialOwner) Ownable(initialOwner) {}
 
-    function authorize(address caller) external onlyOwnerOrAuthorized {
+    function authorize(address caller) external onlyOwner {
         require(caller != address(0), "Zero address");
         authorized[caller] = true;
     }
@@ -37,11 +32,20 @@ contract Reputation is Ownable, IReputation {
         authorized[caller] = false;
     }
 
-    function updateRep(address user, int256 delta, address challenge) external onlyAuthorized{
+    function updateRep(address user, int256 delta, address challenge) external onlyAuthorized {
         scores[user] += delta;
         emit ReputationUpdated(user, delta, scores[user], challenge, block.timestamp);
     }
-    function getScore(address user) external view returns (int256){
+
+    function batchUpdateRep(address[] calldata users, int256[] calldata deltas, address challenge) external onlyAuthorized {
+        require(users.length == deltas.length, "Length mismatch");
+        for (uint256 i = 0; i < users.length; i++) {
+            scores[users[i]] += deltas[i];
+            emit ReputationUpdated(users[i], deltas[i], scores[users[i]], challenge, block.timestamp);
+        }
+    }
+
+    function getScore(address user) external view returns (int256) {
         return scores[user];
     }
 }
