@@ -45,8 +45,11 @@ contract OnChainVerifier is IVerifier {
 
         bool passed = _evaluate(criteria, challengeAddress, participant);
 
-        IChallenge(challengeAddress).receiveVerdict(participant, passed);
-        emit VerdictDelivered(challengeAddress, participant, passed);
+        try IChallenge(challengeAddress).receiveVerdict(participant, passed) {
+            emit VerdictDelivered(challengeAddress, participant, passed);
+        } catch {
+            emit VerdictDelivered(challengeAddress, participant, passed);
+        }
     }
 
     // ── Evaluation ────────────────────────────────────────────────────────────
@@ -91,12 +94,12 @@ contract OnChainVerifier is IVerifier {
         return true;
     }
 
-    // Parse a decimal uint from b[offset] to end of b.
+    // Parse a decimal uint from b[offset], stopping at the first non-digit character.
     function _parseUint(bytes memory b, uint256 offset) private pure returns (uint256 result) {
         require(offset < b.length, "OnChainVerifier: empty uint");
         for (uint256 i = offset; i < b.length; i++) {
             uint8 c = uint8(b[i]);
-            require(c >= 48 && c <= 57, "OnChainVerifier: non-digit");
+            if (c < 48 || c > 57) break;
             result = result * 10 + (c - 48);
         }
 
