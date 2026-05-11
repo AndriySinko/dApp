@@ -135,7 +135,40 @@ async function main() {
     await (await treasury.setFactory(await factory.getAddress())).wait();
     console.log("treasury.setFactory(factory) ✓");
 
-    // ── 8. Print .env.local block ─────────────────────────────────────────────
+    // ── 8. Register Chainlink Automation upkeep for governance ────────────────
+    // Governance contract now implements checkUpkeep/performUpkeep so Chainlink
+    // will automatically call tickEpoch() when each epoch ends.
+    console.log("\nRegistering governance upkeep...");
+    const GOVERNANCE_UPKEEP_FUNDING = ethers.parseEther("2"); // 2 LINK
+    const linkContract = await ethers.getContractAt("IERC20", LINK_TOKEN);
+    const linkBalance  = await linkContract.balanceOf(deployer.address);
+    if (linkBalance >= GOVERNANCE_UPKEEP_FUNDING) {
+        await (await linkContract.approve(AUTOMATION_REGISTRY, GOVERNANCE_UPKEEP_FUNDING)).wait();
+        // Use same IAutomationRegistrar interface as ChallengeFactory
+        const registrarAbi = [
+            "function registerUpkeep(tuple(string name, bytes encryptedEmail, address upkeepContract, uint32 gasLimit, address adminAddress, uint8 triggerType, bytes checkData, bytes triggerConfig, bytes offchainConfig, uint96 amount) requestParams) external returns (uint256 id)"
+        ];
+        const registrar = new ethers.Contract(AUTOMATION_REGISTRY, registrarAbi, deployer);
+        const tx = await registrar.registerUpkeep({
+            name:           "PACT Governance tickEpoch",
+            encryptedEmail: "0x",
+            upkeepContract: await governance.getAddress(),
+            gasLimit:       500000,
+            adminAddress:   deployer.address,
+            triggerType:    0,
+            checkData:      "0x",
+            triggerConfig:  "0x",
+            offchainConfig: "0x",
+            amount:         GOVERNANCE_UPKEEP_FUNDING,
+        });
+        await tx.wait();
+        console.log("Governance upkeep registered ✓ (2 LINK funded)");
+    } else {
+        console.warn("Warning: insufficient LINK — register governance upkeep manually at automation.chain.link");
+        console.warn(`  Contract to register: ${await governance.getAddress()}`);
+    }
+
+    // ── 9. Print .env.local block ─────────────────────────────────────────────
     console.log("\n# ── Paste into frontend/.env.local ──────────────────────────");
     console.log(`NEXT_PUBLIC_FACTORY_ADDRESS=${await factory.getAddress()}`);
     console.log(`NEXT_PUBLIC_GOVERNANCE_ADDRESS=${await governance.getAddress()}`);
