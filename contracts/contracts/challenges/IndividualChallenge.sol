@@ -113,7 +113,7 @@ contract IndividualChallenge is BaseChallenge, ReentrancyGuard {
         emit BetPlaced(msg.sender, side, msg.value, _forPool, _againstPool, block.timestamp);
     }
 
-    function _readyToSettle() internal override returns (bool) {
+    function _readyToSettle() internal view override returns (bool) {
         return _verdictReceived[_creator];
     }
 
