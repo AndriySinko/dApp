@@ -1,5 +1,6 @@
 import { SecretsManager } from "@chainlink/functions-toolkit";
-import { ethers } from "ethers";
+// functions-toolkit uses ethers v5 internally — must use v5 provider/signer
+import { ethers } from "@chainlink/functions-toolkit/node_modules/ethers";
 import * as dotenv from "dotenv";
 import * as path from "path";
 
@@ -18,7 +19,7 @@ async function main() {
         throw new Error("Missing SEPOLIA_RPC_URL, PRIVATE_KEY or GEMINI_API_KEY in .env");
     }
 
-    const provider = new ethers.JsonRpcProvider(SEPOLIA_RPC_URL);
+    const provider = new ethers.providers.JsonRpcProvider(SEPOLIA_RPC_URL);
     const signer   = new ethers.Wallet(PRIVATE_KEY, provider);
 
     console.log("Uploading secrets as:", signer.address);
