@@ -2,7 +2,7 @@
 pragma solidity ^0.8.24;
 
 // ERC-20 stub with configurable per-address balances.
-// Used to test OnChainVerifier's "erc20:addr:amount" criteria.
+// Used to mocks OnChainVerifier's "erc20:addr:amount" criteria.
 contract MockERC20Balance {
     mapping(address => uint256) private _balances;
 

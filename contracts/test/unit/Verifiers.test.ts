@@ -174,7 +174,7 @@ describe("ApiOracleVerifier", () => {
 
         it("setDonId stores the value", async () => {
             const { verifier } = await loadFixture(apiOracleVerifierFixture);
-            const id = ethers.encodeBytes32String("test-don");
+            const id = ethers.encodeBytes32String("mocks-don");
             await verifier.setDonId(id);
             expect(await verifier.donId()).to.equal(id);
         });

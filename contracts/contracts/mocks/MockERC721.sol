@@ -2,7 +2,7 @@
 pragma solidity ^0.8.24;
 
 // ERC-721 stub with configurable per-address balances.
-// Used to test OnChainVerifier's "nft:addr" criteria.
+// Used to mocks OnChainVerifier's "nft:addr" criteria.
 contract MockERC721 {
     mapping(address => uint256) private _balances;
 
