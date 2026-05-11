@@ -56,6 +56,10 @@ contract AiOracleVerifier is IVerifier, FunctionsClient, Ownable {
     uint8  public secretsSlotId;
     uint64 public secretsVersion;
 
+    event JsSourceUpdated(address indexed owner);
+    event SubscriptionIdUpdated(uint64 subscriptionId);
+    event SecretsReferenceUpdated(uint8 slotId, uint64 version);
+
     event VerificationRequested(
         address indexed challengeAddress,
         address indexed participant,
@@ -94,10 +98,12 @@ contract AiOracleVerifier is IVerifier, FunctionsClient, Ownable {
     function setJsSource(string calldata _jsSource) external onlyOwner {
         require(bytes(_jsSource).length > 0, "Empty source");
         jsSource = _jsSource;
+        emit JsSourceUpdated(msg.sender);
     }
 
     function setSubscriptionId(uint64 _subscriptionId) external onlyOwner {
         subscriptionId = _subscriptionId;
+        emit SubscriptionIdUpdated(_subscriptionId);
     }
 
     function setDonId(bytes32 _donId) external onlyOwner {
@@ -108,6 +114,7 @@ contract AiOracleVerifier is IVerifier, FunctionsClient, Ownable {
     function setSecretsReference(uint8 _slotId, uint64 _version) external onlyOwner {
         secretsSlotId   = _slotId;
         secretsVersion  = _version;
+        emit SecretsReferenceUpdated(_slotId, _version);
     }
 
     // ── IVerifier ─────────────────────────────────────────────────────────────

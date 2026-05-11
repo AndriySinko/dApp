@@ -132,6 +132,9 @@ async function main() {
     await (await treasury.authorize(await governance.getAddress())).wait();
     console.log("treasury.authorize(governance) ✓");
 
+    await (await treasury.setFactory(await factory.getAddress())).wait();
+    console.log("treasury.setFactory(factory) ✓");
+
     // ── 8. Print .env.local block ─────────────────────────────────────────────
     console.log("\n# ── Paste into frontend/.env.local ──────────────────────────");
     console.log(`NEXT_PUBLIC_FACTORY_ADDRESS=${await factory.getAddress()}`);

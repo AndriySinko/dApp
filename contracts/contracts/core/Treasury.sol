@@ -7,6 +7,7 @@ import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 contract Treasury is ITreasury, Ownable {
     uint256 private _prizePool;
     mapping(address => bool) authorized;
+    address public factory;
 
     constructor(address initialOwner) Ownable(initialOwner) {}
 
@@ -19,9 +20,21 @@ contract Treasury is ITreasury, Ownable {
     event PrizePoolWithdrawn(address indexed recipient, uint256 amount, uint256 newTotal);
     event PrizePoolUpdated(uint256 newTotal);
 
+    function setFactory(address _factory) external onlyOwner {
+        require(factory == address(0), "Already set");
+        require(_factory != address(0), "Zero address");
+        factory = _factory;
+    }
+
     function authorize(address caller) external onlyOwner {
         require(caller != address(0), "Zero address");
         authorized[caller] = true;
+    }
+
+    function authorizeChallenge(address challenge) external override {
+        require(msg.sender == factory, "Only factory");
+        require(challenge != address(0), "Zero address");
+        authorized[challenge] = true;
     }
 
     function deauthorize(address caller) external onlyOwner {
@@ -32,7 +45,7 @@ contract Treasury is ITreasury, Ownable {
         return _prizePool;
     }
 
-    function depositFee() external payable override {
+    function depositFee() external payable override onlyAuthorized {
         require(msg.value > 0, "Must send some ether");
         _prizePool += msg.value;
         emit FeeReceived(msg.sender, msg.value, block.timestamp);
@@ -49,7 +62,6 @@ contract Treasury is ITreasury, Ownable {
         emit PrizePoolUpdated(_prizePool);
     }
 
-    // Drains the full contract balance (including any force-sent ETH) to recipient.
     function sweep(address recipient) external onlyOwner {
         require(recipient != address(0), "Zero address");
         uint256 amount = address(this).balance;
