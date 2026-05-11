@@ -237,6 +237,19 @@ export const REPUTATION_ABI = [
 
 export const GOVERNANCE_ABI = [
   {
+    type: "function", name: "propose",
+    inputs: [
+      { name: "title",        type: "string"  },
+      { name: "description",  type: "string"  },
+      { name: "verifier",     type: "uint8"   },
+      { name: "durationDays", type: "uint256" },
+      { name: "joinDays",     type: "uint256" },
+      { name: "minStake",     type: "uint256" },
+    ],
+    outputs: [],
+    stateMutability: "nonpayable",
+  },
+  {
     type: "function", name: "getProposals",
     inputs: [],
     outputs: [{

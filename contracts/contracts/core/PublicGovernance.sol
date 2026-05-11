@@ -8,6 +8,7 @@ import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
+import "@chainlink/contracts/src/v0.8/automation/AutomationCompatible.sol";
 
 interface IFactory {
     function createChallenge(
@@ -21,7 +22,7 @@ interface IFactory {
     ) external payable returns (address);
 }
 
-contract PublicGovernance is Ownable, ReentrancyGuard {
+contract PublicGovernance is Ownable, ReentrancyGuard, AutomationCompatibleInterface {
     using SafeERC20 for IERC20;
 
     uint256 private constant UPKEEP_FUNDING = 2e18;
@@ -156,7 +157,10 @@ contract PublicGovernance is Ownable, ReentrancyGuard {
         require(block.timestamp >= _epochEnd,  "Epoch not ended yet");
         require(_proposals.length > 0,         "No proposals this epoch");
         require(prizePerEpoch > 0,             "Prize pool per epoch not set");
+        _tickEpoch();
+    }
 
+    function _tickEpoch() internal {
         uint256 pLen = _proposals.length;
         uint256 winningVotes;
         uint256 winningIndex;
@@ -221,5 +225,21 @@ contract PublicGovernance is Ownable, ReentrancyGuard {
 
     function currentEpoch() external view returns (uint256) {
         return _currentEpoch;
+    }
+
+    // ── Chainlink Automation ──────────────────────────────────────────────────
+
+    function checkUpkeep(bytes calldata) external view override returns (bool upkeepNeeded, bytes memory) {
+        upkeepNeeded = block.timestamp >= _epochEnd
+            && _proposals.length > 0
+            && prizePerEpoch > 0;
+    }
+
+    function performUpkeep(bytes calldata) external override nonReentrant {
+        require(
+            block.timestamp >= _epochEnd && _proposals.length > 0 && prizePerEpoch > 0,
+            "Upkeep not needed"
+        );
+        _tickEpoch();
     }
 }

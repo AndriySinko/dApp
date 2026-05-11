@@ -1,11 +1,106 @@
 "use client";
 
-import { useAccount } from "wagmi";
-import { PAST_EPOCHS } from "@/lib/data";
+import { useState } from "react";
+import { useAccount, useReadContract, useWriteContract, useWaitForTransactionReceipt } from "wagmi";
 import { VERIFIER_ICON, VERIFIER_LABEL, timeLeft } from "@/lib/utils";
 import { useGovernance, useVote } from "@/lib/hooks/useGovernance";
+import { TickEpochBanner } from "@/components/ActionCards";
 import { ADDRESSES } from "@/lib/contracts";
 import { useEpochResults } from "@/lib/hooks/useEpochResults";
+import type { VerifierType } from "@/lib/types";
+import { VERIFIER_TYPE_NUM } from "@/lib/types";
+
+const OWNER_ABI = [{ type: "function", name: "owner", inputs: [], outputs: [{ type: "address" }], stateMutability: "view" }] as const;
+const PROPOSE_VERIFIERS: { value: VerifierType; label: string }[] = [
+  { value: "ON_CHAIN",   label: "On-chain" },
+  { value: "API_ORACLE", label: "API Oracle" },
+  { value: "AI_ORACLE",  label: "AI Oracle" },
+];
+
+function ProposeForm({ onProposed }: { onProposed: () => void }) {
+  const [title,    setTitle]    = useState("");
+  const [desc,     setDesc]     = useState("");
+  const [verifier, setVerifier] = useState<VerifierType>("ON_CHAIN");
+  const [duration, setDuration] = useState("7");
+  const [joinDays, setJoinDays] = useState("2");
+  const [minStake, setMinStake] = useState("0.01");
+  const [open,     setOpen]     = useState(false);
+
+  const { writeContract, data: txHash, isPending } = useWriteContract();
+  const { isSuccess } = useWaitForTransactionReceipt({ hash: txHash, query: { enabled: !!txHash } });
+
+  const PROPOSE_ABI = [{
+    type: "function", name: "propose",
+    inputs: [
+      { name: "title",        type: "string"  },
+      { name: "description",  type: "string"  },
+      { name: "verifier",     type: "uint8"   },
+      { name: "durationDays", type: "uint256" },
+      { name: "joinDays",     type: "uint256" },
+      { name: "minStake",     type: "uint256" },
+    ],
+    outputs: [], stateMutability: "nonpayable",
+  }] as const;
+
+  const submit = () => {
+    if (!ADDRESSES.governance || !title || !desc) return;
+    writeContract({
+      address: ADDRESSES.governance,
+      abi: PROPOSE_ABI,
+      functionName: "propose",
+      args: [
+        title, desc,
+        VERIFIER_TYPE_NUM[verifier],
+        BigInt(duration),
+        BigInt(joinDays),
+        BigInt(Math.round(parseFloat(minStake) * 1e18)),
+      ],
+    });
+  };
+
+  if (isSuccess) {
+    return (
+      <div className="card" style={{ padding: 24, borderColor: "var(--win)", background: "var(--win-bg)" }}>
+        <div className="row gap-3"><span className="tag acc">✓ Proposed</span><span className="muted" style={{ fontSize: 13 }}>"{title}" is now open for voting.</span></div>
+      </div>
+    );
+  }
+
+  if (!open) {
+    return (
+      <div style={{ marginBottom: 24 }}>
+        <button className="btn primary sm" onClick={() => setOpen(true)}>+ New proposal</button>
+      </div>
+    );
+  }
+
+  return (
+    <div className="card" style={{ padding: 28, marginBottom: 24, borderColor: "var(--acc)" }}>
+      <div className="row" style={{ justifyContent: "space-between", marginBottom: 20 }}>
+        <div className="eyebrow">New proposal</div>
+        <button className="btn sm ghost" onClick={() => setOpen(false)}>Cancel</button>
+      </div>
+      <div className="col gap-4">
+        <div className="field"><label>Title</label><input className="input" value={title} onChange={e => setTitle(e.target.value)} placeholder="30-day fitness challenge" /></div>
+        <div className="field"><label>Description</label><textarea className="input" value={desc} onChange={e => setDesc(e.target.value)} placeholder="Describe what participants must do…" rows={3} /></div>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr", gap: 16 }}>
+          <div className="field">
+            <label>Verifier</label>
+            <select className="input" value={verifier} onChange={e => setVerifier(e.target.value as VerifierType)}>
+              {PROPOSE_VERIFIERS.map(v => <option key={v.value} value={v.value}>{v.label}</option>)}
+            </select>
+          </div>
+          <div className="field"><label>Duration (days)</label><input className="input" type="number" value={duration} onChange={e => setDuration(e.target.value)} min="1" /></div>
+          <div className="field"><label>Join window (days)</label><input className="input" type="number" value={joinDays} onChange={e => setJoinDays(e.target.value)} min="1" /></div>
+          <div className="field"><label>Min stake (ETH)</label><input className="input" type="number" value={minStake} onChange={e => setMinStake(e.target.value)} step="0.01" /></div>
+        </div>
+        <button className="btn primary" disabled={!title || !desc || isPending} onClick={submit} style={{ alignSelf: "flex-start" }}>
+          {isPending ? <><span className="spinner-dot" />Proposing…</> : "Submit proposal"}
+        </button>
+      </div>
+    </div>
+  );
+}
 
 export default function PublicPage() {
   const { address } = useAccount();
@@ -26,29 +121,41 @@ export default function PublicPage() {
   const { vote, isPending: isVotePending, isSuccess: isVoteSuccess } = useVote();
   const { epochs: liveEpochs } = useEpochResults();
 
+  const { data: ownerAddress } = useReadContract({ address: ADDRESSES.governance, abi: OWNER_ABI, functionName: "owner" });
+  const isOwner = !!address && !!ownerAddress && address.toLowerCase() === (ownerAddress as string).toLowerCase();
+
   const handleVote = (proposalIndex: number) => {
     vote(proposalIndex);
     setTimeout(refetch, 3000);
   };
 
-  // Fall back to mock data if contract not deployed yet
-  if (!isDeployed || (!isLoading && proposals.length === 0)) {
+  if (!isDeployed) {
     return <MockGovernancePage />;
   }
 
+  const epochEnded = epochEnd !== null && epochEnd !== undefined && new Date() >= epochEnd;
+  const winningProposal = proposals.length > 0 ? proposals.reduce((a, b) => a.votes >= b.votes ? a : b) : null;
+
   return (
     <div className="container fade-in" style={{ paddingTop: 40, paddingBottom: 80 }}>
+      {epochEnded && winningProposal && (
+        <TickEpochBanner
+          epochNumber={currentEpoch ?? 1}
+          winningTitle={winningProposal.title}
+          proposalId={`P-${String(winningProposal.index).padStart(3, "0")}`}
+        />
+      )}
       <div className="page-head">
         <div>
           <div className="row gap-3" style={{ marginBottom: 12 }}>
-            <span className="eyebrow">{`{ governance · epoch #${currentEpoch ?? "…"} }`}</span>
-            {epochEnd && <><span className="status-dot warn" /><span className="muted" style={{ fontSize: 12 }}>tickEpoch {timeLeft(epochEnd)}</span></>}
+            <span className="eyebrow">{`{ governance · round #${currentEpoch ?? "…"} }`}</span>
+            {epochEnd && <><span className="status-dot warn" /><span className="muted" style={{ fontSize: 12 }}>voting closes {timeLeft(epochEnd)}</span></>}
           </div>
           <h1 className="serif" style={{ fontSize: 56, fontWeight: 400, letterSpacing: "-0.02em" }}>Vote the next public challenge.</h1>
           <p style={{ marginTop: 14, color: "var(--text-2)", fontSize: 15, maxWidth: 640, lineHeight: 1.55 }}>
             Admin proposes. Community votes — weighted by reputation, capped at 100×.
-            The leading proposal at epoch end is auto-deployed by the factory and funded
-            from the treasury prize pool.
+            The leading proposal when voting closes is automatically deployed as a public challenge
+            and funded from the treasury prize pool.
           </p>
         </div>
       </div>
@@ -87,8 +194,9 @@ export default function PublicPage() {
 
       <div className="row" style={{ justifyContent: "space-between", marginBottom: 16 }}>
         <h2 className="h-2">Open proposals</h2>
-        <span className="muted mono" style={{ fontSize: 12 }}>one vote per address per epoch</span>
+        <span className="muted mono" style={{ fontSize: 12 }}>one vote per address per round</span>
       </div>
+      {isOwner && <ProposeForm onProposed={refetch} />}
 
       <div className="col gap-3">
         {proposals.map((p, idx) => {
@@ -141,55 +249,37 @@ export default function PublicPage() {
         })}
         {proposals.length === 0 && !isLoading && (
           <div className="card" style={{ padding: 40, textAlign: "center", color: "var(--text-4)" }}>
-            No proposals this epoch.
+            No proposals this round.
           </div>
         )}
       </div>
 
       <div style={{ marginTop: 56 }}>
-        <h2 className="h-2" style={{ marginBottom: 16 }}>Recent epochs</h2>
+        <h2 className="h-2" style={{ marginBottom: 16 }}>Past challenges</h2>
         <div className="card" style={{ padding: 0, overflow: "hidden" }}>
           <table className="table">
             <thead>
               <tr>
-                <th>epoch</th><th>winning proposal</th><th>verifier</th>
+                <th>round</th><th>winning proposal</th><th>verifier</th>
                 <th style={{ textAlign: "right" }}>votes</th>
                 <th style={{ textAlign: "right" }}>prize pool</th>
                 <th style={{ textAlign: "right" }}>outcome</th>
               </tr>
             </thead>
             <tbody>
-              {(liveEpochs.length > 0 ? liveEpochs : PAST_EPOCHS).map(e => {
-                const isLive = liveEpochs.length > 0;
-                const epoch      = e.epoch;
-                const title      = isLive ? (e as typeof liveEpochs[0]).title : (e as typeof PAST_EPOCHS[0]).title;
-                const prizePool  = (e as { prizePool: number }).prizePool;
-                const verifier   = !isLive ? (e as typeof PAST_EPOCHS[0]).verifier : null;
-                const votes      = !isLive ? (e as typeof PAST_EPOCHS[0]).votes    : null;
-                const outcome    = !isLive ? (e as typeof PAST_EPOCHS[0]).outcome  : null;
-                const addr       = isLive  ? (e as typeof liveEpochs[0]).publicChallengeAddress : null;
-                return (
-                  <tr key={epoch}>
-                    <td><span className="mono dim">#{epoch}</span></td>
-                    <td>{title}</td>
-                    <td>
-                      {verifier ? (
-                        <span className="tag" style={{ color: "var(--text-2)" }}>
-                          <span style={{ color: "var(--acc)" }}>{VERIFIER_ICON[verifier]}</span>{" "}
-                          {VERIFIER_LABEL[verifier]}
-                        </span>
-                      ) : addr ? (
-                        <span className="mono dim" style={{ fontSize: 11 }}>{addr.slice(0, 6)}…{addr.slice(-4)}</span>
-                      ) : (
-                        <span className="muted">—</span>
-                      )}
-                    </td>
-                    <td style={{ textAlign: "right" }} className="num">{votes !== null ? votes.toLocaleString() : "—"}</td>
-                    <td style={{ textAlign: "right" }} className="num">Ξ {prizePool.toFixed(2)}</td>
-                    <td style={{ textAlign: "right" }} className="muted">{outcome ?? "deployed"}</td>
+              {liveEpochs.map(e => (
+                  <tr key={e.epoch}>
+                    <td><span className="mono dim">#{e.epoch}</span></td>
+                    <td>{e.title}</td>
+                    <td><span className="mono dim" style={{ fontSize: 11 }}>{e.publicChallengeAddress.slice(0, 6)}…{e.publicChallengeAddress.slice(-4)}</span></td>
+                    <td style={{ textAlign: "right" }} className="num">—</td>
+                    <td style={{ textAlign: "right" }} className="num">Ξ {e.prizePool.toFixed(2)}</td>
+                    <td style={{ textAlign: "right" }} className="muted">deployed</td>
                   </tr>
-                );
-              })}
+              ))}
+              {liveEpochs.length === 0 && (
+                <tr><td colSpan={6} style={{ textAlign: "center", padding: 32, color: "var(--text-4)" }}>No past challenges yet.</td></tr>
+              )}
             </tbody>
           </table>
         </div>

@@ -14,7 +14,6 @@ type Step = 1 | 2 | 3 | 4;
 const TYPES: { value: ChallengeType; label: string; desc: string }[] = [
   { value: "INDIVIDUAL", label: "Individual", desc: "One commits, outsiders bet FOR or AGAINST." },
   { value: "GROUP",      label: "Group",      desc: "Many participants, same goal. Winners split losers' pool." },
-  { value: "PUBLIC",     label: "Public",     desc: "Admin-proposed, community-voted. Funded by treasury." },
 ];
 
 const VERIFIERS: { value: VerifierType; label: string; desc: string }[] = [
@@ -97,7 +96,7 @@ export default function CreatePage() {
         {step === 1 && (
           <>
             <div className="h-2 serif" style={{ fontSize: 28, marginBottom: 24 }}>Choose challenge type</div>
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 12 }}>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 12 }}>
               {TYPES.map(({ value, label, desc }) => (
                 <div
                   key={value}
@@ -123,7 +122,7 @@ export default function CreatePage() {
           <>
             <div className="h-2 serif" style={{ fontSize: 28, marginBottom: 24 }}>Verification method</div>
             <div className="col gap-3" style={{ marginBottom: 28 }}>
-              {VERIFIERS.map(({ value, label, desc }) => (
+              {VERIFIERS.map(({ value, desc }) => (
                 <div
                   key={value}
                   className="card"
