@@ -172,7 +172,7 @@ contract PublicGovernance is Ownable, ReentrancyGuard {
         Proposal memory winner = _proposals[winningIndex];
 
         ITreasury(treasuryAddress).withdrawPrizePool(address(this), prizePerEpoch);
-        IERC20(linkToken).safeIncreaseAllowance(factoryAddress, UPKEEP_FUNDING);
+        IERC20(linkToken).forceApprove(factoryAddress, UPKEEP_FUNDING);
 
         uint256 joinDeadline      = block.timestamp + winner.joinDays * 1 days;
         uint256 challengeDeadline = joinDeadline + winner.durationDays * 1 days;
@@ -187,7 +187,7 @@ contract PublicGovernance is Ownable, ReentrancyGuard {
             winner.minStake
         );
 
-        IERC20(linkToken).safeDecreaseAllowance(factoryAddress, IERC20(linkToken).allowance(address(this), factoryAddress));
+        IERC20(linkToken).forceApprove(factoryAddress, 0);
 
         emit EpochTicked(_currentEpoch, winningIndex, winner.title, publicChallengeAddress, prizePerEpoch);
 

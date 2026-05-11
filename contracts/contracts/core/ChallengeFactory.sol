@@ -147,7 +147,7 @@ contract ChallengeFactory {
         }
 
         IERC20(linkToken).safeTransferFrom(msg.sender, address(this), UPKEEP_FUNDING);
-        IERC20(linkToken).safeIncreaseAllowance(automationRegistry, UPKEEP_FUNDING);
+        IERC20(linkToken).forceApprove(automationRegistry, UPKEEP_FUNDING);
 
         uint256 id = nextId++;
         address resolvedVerifier = _resolveVerifier(verifier);

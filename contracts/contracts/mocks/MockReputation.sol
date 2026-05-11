@@ -14,5 +14,11 @@ contract MockReputation is IReputation {
         return scores[user];
     }
 
+    function batchUpdateRep(address[] calldata users, int256[] calldata deltas, address) external override {
+        for (uint256 i = 0; i < users.length; i++) {
+            scores[users[i]] += deltas[i];
+        }
+    }
+
     function authorize(address) external override {}
 }

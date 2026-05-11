@@ -19,5 +19,7 @@ contract MockTreasury is ITreasury {
         return address(this).balance;
     }
 
+    function authorizeChallenge(address) external override {}
+
     receive() external payable {}
 }
