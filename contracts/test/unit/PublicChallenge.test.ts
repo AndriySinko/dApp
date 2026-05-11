@@ -183,7 +183,7 @@ describe("PublicChallenge", () => {
 
         it("reverts when state is not Active (still JoinOpen)", async () => {
             const { challenge } = await loadFixture(publicFixture);
-            await expect(challenge.returnPrizePoolToTreasury()).to.be.revertedWith("Not in Active state");
+            await expect(challenge.returnPrizePoolToTreasury()).to.be.revertedWith("Not in recoverable state");
         });
 
         it("reverts when participants have joined", async () => {

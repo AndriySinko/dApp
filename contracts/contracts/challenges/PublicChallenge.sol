@@ -124,8 +124,12 @@ contract PublicChallenge is GroupChallenge {
     }
 
     function returnPrizePoolToTreasury() external {
-        require(msg.sender == _creator,               "Only creator");
-        require(_state == ChallengeState.Active,      "Not in Active state");
+        require(msg.sender == _creator, "Only creator");
+        require(
+            _state == ChallengeState.Active ||
+            (_state == ChallengeState.JoinOpen && block.timestamp > _joinDeadline),
+            "Not in recoverable state"
+        );
         require(_participants.length == 0,            "Participants exist");
         require(block.timestamp > _challengeDeadline, "Challenge not over");
 

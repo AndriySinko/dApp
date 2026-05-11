@@ -44,7 +44,14 @@ contract OnChainVerifier is IVerifier {
 
         emit VerificationRequested(challengeAddress, participant);
 
-        bool passed = _evaluate(criteria, challengeAddress, participant);
+        bool passed;
+        try this.evaluate(criteria, challengeAddress, participant) returns (bool result) {
+            passed = result;
+        } catch {
+            emit VerificationFailed(challengeAddress, participant, false);
+            try IChallenge(challengeAddress).receiveVerdict(participant, false) {} catch {}
+            return;
+        }
 
         try IChallenge(challengeAddress).receiveVerdict(participant, passed) {
             emit VerdictDelivered(challengeAddress, participant, passed);
@@ -54,6 +61,16 @@ contract OnChainVerifier is IVerifier {
     }
 
     // ── Evaluation ────────────────────────────────────────────────────────────
+
+    // External so it can be called via `this.evaluate()` inside a try/catch,
+    // allowing external call reverts (e.g. malicious token) to be caught.
+    function evaluate(
+        string memory criteria,
+        address challengeAddress,
+        address participant
+    ) external view returns (bool) {
+        return _evaluate(criteria, challengeAddress, participant);
+    }
 
     function _evaluate(
         string memory criteria,

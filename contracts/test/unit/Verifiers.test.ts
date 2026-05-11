@@ -113,12 +113,12 @@ describe("OnChainVerifier", () => {
     });
 
     describe("unknown criteria", () => {
-        it("reverts with unknown criteria type", async () => {
+        it("delivers false verdict on unknown criteria type instead of reverting", async () => {
             const { verifier, challenge, alice } = await loadFixture(onChainVerifierFixture);
             const params = encodeParams("github:commits:10");
             await expect(
                 challenge.callRequestVerification(await verifier.getAddress(), alice.address, params),
-            ).to.be.revertedWith("OnChainVerifier: unknown criteria type");
+            ).to.emit(verifier, "VerificationFailed");
         });
     });
 
