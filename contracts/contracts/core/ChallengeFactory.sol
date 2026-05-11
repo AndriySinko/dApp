@@ -3,9 +3,13 @@ pragma solidity ^0.8.24;
 
 import "../Types.sol";
 import "../interfaces/IReputation.sol";
+import "../interfaces/ITreasury.sol";
+import "../interfaces/IChallenge.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 
 interface IChallengeDeployer {
+    function factory() external view returns (address);
     function deploy(
         uint256 id,
         address creatorAddr,
@@ -28,7 +32,7 @@ interface IAutomationRegistrar {
         address upkeepContract;
         uint32  gasLimit;
         address adminAddress;
-        uint8   triggerType;    // 0 = conditional
+        uint8   triggerType;
         bytes   checkData;
         bytes   triggerConfig;
         bytes   offchainConfig;
@@ -38,7 +42,9 @@ interface IAutomationRegistrar {
 }
 
 contract ChallengeFactory {
-    uint256 public constant UPKEEP_FUNDING = 2e18;   // 2 LINK per challenge
+    using SafeERC20 for IERC20;
+
+    uint256 public constant UPKEEP_FUNDING = 2e18;
 
     address[] allChallenges;
     mapping(address => address[]) userChallenges;
@@ -57,10 +63,8 @@ contract ChallengeFactory {
     address onChainVerifier;
     address apiVerifier;
     address aiVerifier;
-    address automationRegistry;    // Chainlink Automation Registrar on Sepolia
-    address linkToken;             // LINK token address on Sepolia
-
-    // Per-type deployer contracts (set at construction, each carries one challenge's creation bytecode)
+    address automationRegistry;
+    address linkToken;
     address individualDeployer;
     address groupDeployer;
     address publicDeployer;
@@ -99,6 +103,17 @@ contract ChallengeFactory {
         address _groupDeployer,
         address _publicDeployer
     ) {
+        require(_reputationAddress  != address(0), "Zero reputation");
+        require(_treasuryAddress    != address(0), "Zero treasury");
+        require(_onChainVerifier    != address(0), "Zero onchain verifier");
+        require(_apiVerifier        != address(0), "Zero api verifier");
+        require(_aiVerifier         != address(0), "Zero ai verifier");
+        require(_automationRegistry != address(0), "Zero automation registry");
+        require(_linkToken          != address(0), "Zero link token");
+        require(_individualDeployer != address(0), "Zero individual deployer");
+        require(_groupDeployer      != address(0), "Zero group deployer");
+        require(_publicDeployer     != address(0), "Zero public deployer");
+
         reputationAddress  = _reputationAddress;
         treasuryAddress    = _treasuryAddress;
         onChainVerifier    = _onChainVerifier;
@@ -111,10 +126,6 @@ contract ChallengeFactory {
         publicDeployer     = _publicDeployer;
     }
 
-    // Individual:  msg.value == buyIn  (creator stakes immediately, auto-registered as FOR bettor)
-    // Group:       msg.value == 0      (creator joins separately via join())
-    // Public:      msg.value == prize  (ETH sent by PublicGovernance from Treasury; creator joins via join())
-    // In all cases, creator must approve 2 LINK to this contract before calling.
     function createChallenge(
         ChallengeType challengeType,
         VerifierType  verifier,
@@ -135,29 +146,35 @@ contract ChallengeFactory {
             require(msg.value > 0, "Must send prize pool ETH for Public challenge");
         }
 
-        // Pull LINK from creator and approve the registrar to spend it for the upkeep deposit
-        IERC20(linkToken).transferFrom(msg.sender, address(this), UPKEEP_FUNDING);
-        IERC20(linkToken).approve(automationRegistry, UPKEEP_FUNDING);
+        IERC20(linkToken).safeTransferFrom(msg.sender, address(this), UPKEEP_FUNDING);
+        IERC20(linkToken).safeIncreaseAllowance(automationRegistry, UPKEEP_FUNDING);
 
         uint256 id = nextId++;
         address resolvedVerifier = _resolveVerifier(verifier);
 
+        address deployer;
         if (challengeType == ChallengeType.Individual) {
-            challengeAddress = IChallengeDeployer(individualDeployer).deploy{value: msg.value}(
+            deployer = individualDeployer;
+            require(IChallengeDeployer(deployer).factory() == address(this), "Deployer not initialized");
+            challengeAddress = IChallengeDeployer(deployer).deploy{value: msg.value}(
                 id, msg.sender, title, criteria,
                 joinDeadline, challengeDeadline, buyIn,
                 verifier, resolvedVerifier,
                 reputationAddress, treasuryAddress
             );
         } else if (challengeType == ChallengeType.Group) {
-            challengeAddress = IChallengeDeployer(groupDeployer).deploy(
+            deployer = groupDeployer;
+            require(IChallengeDeployer(deployer).factory() == address(this), "Deployer not initialized");
+            challengeAddress = IChallengeDeployer(deployer).deploy(
                 id, msg.sender, title, criteria,
                 joinDeadline, challengeDeadline, buyIn,
                 verifier, resolvedVerifier,
                 reputationAddress, treasuryAddress
             );
         } else {
-            challengeAddress = IChallengeDeployer(publicDeployer).deploy{value: msg.value}(
+            deployer = publicDeployer;
+            require(IChallengeDeployer(deployer).factory() == address(this), "Deployer not initialized");
+            challengeAddress = IChallengeDeployer(deployer).deploy{value: msg.value}(
                 id, msg.sender, title, criteria,
                 joinDeadline, challengeDeadline, buyIn,
                 verifier, resolvedVerifier,
@@ -165,11 +182,10 @@ contract ChallengeFactory {
             );
         }
 
-        // Allow the challenge to call updateRep on settlement
         IReputation(reputationAddress).authorize(challengeAddress);
+        ITreasury(treasuryAddress).authorizeChallenge(challengeAddress);
 
-        // Register the deployed contract as a Chainlink Automation upkeep
-        IAutomationRegistrar(automationRegistry).registerUpkeep(
+        uint256 upkeepId = IAutomationRegistrar(automationRegistry).registerUpkeep(
             IAutomationRegistrar.RegistrationParams({
                 name:           title,
                 encryptedEmail: bytes(""),
@@ -183,6 +199,9 @@ contract ChallengeFactory {
                 amount:         uint96(UPKEEP_FUNDING)
             })
         );
+        require(upkeepId != 0, "Upkeep registration failed");
+
+        IChallenge(challengeAddress).setUpkeepRegistered();
 
         allChallenges.push(challengeAddress);
         challengeInfos[challengeAddress] = ChallengeInfo({
@@ -224,7 +243,6 @@ contract ChallengeFactory {
         return aiVerifier;
     }
 
-    // Internal — registers user→challenge link (called on join/bet events)
     function _registerUserActivity(address user, address challenge) internal {
         if (userChallenges[user].length == 0 || userChallenges[user][userChallenges[user].length - 1] != challenge) {
             userChallenges[user].push(challenge);

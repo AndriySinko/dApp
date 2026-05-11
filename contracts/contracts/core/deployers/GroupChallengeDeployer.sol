@@ -29,7 +29,7 @@ contract GroupChallengeDeployer {
         address vAddress,
         address repAddress,
         address treasAddress
-    ) external payable returns (address) {
+    ) external returns (address) {
         require(msg.sender == factory, "Only factory");
         return address(new GroupChallenge(
             id, creatorAddr, titleStr, criteriaStr,
