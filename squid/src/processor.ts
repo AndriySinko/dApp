@@ -282,10 +282,18 @@ processor.run(new TypeormDatabase({ supportHotBlocks: true }), async (ctx) => {
         p.joinedAt        = ts;
         participants.set(key, p);
 
+        // For Group/Public, bettorsFor tracks participant count (no BetPlaced events)
+        if (c.type !== ChallengeType.INDIVIDUAL) {
+          c.bettorsFor = (c.bettorsFor ?? 0) + 1;
+        }
+
       } else if (t === topics.StateChanged) {
         const [, toNum] = abiCoder.decode(["uint8", "uint8", "uint256"], log.data);
         const newState  = STATE_MAP[Number(toNum)];
         if (newState) c.state = newState;
+
+      } else if (t === topics.Settled) {
+        c.state = ChallengeState.SETTLED;
 
       } else if (t === topics.ParticipantSettled) {
         const participant = addrFromTopic(log.topics[1]);
