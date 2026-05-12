@@ -72,6 +72,22 @@ contract GroupChallenge is BaseChallenge, ReentrancyGuard {
         emit ParticipantRegistered(msg.sender, msg.value, block.timestamp);
     }
 
+    function joinAndBind(string calldata serviceAccountId) external payable {
+        require(_state == ChallengeState.JoinOpen, "Challenge not open for joining");
+        require(block.timestamp < _joinDeadline, "Join deadline has passed");
+        require(!_isRegistered[msg.sender], "Already joined");
+        require(msg.value >= _buyIn, "Must send at least buy-in");
+        require(bytes(serviceAccountId).length > 0, "Account ID required");
+
+        _participants.push(msg.sender);
+        _isRegistered[msg.sender]  = true;
+        _stakes[msg.sender]        = msg.value;
+        boundAccount[msg.sender]   = serviceAccountId;
+
+        emit ParticipantRegistered(msg.sender, msg.value, block.timestamp);
+        emit AccountBound(msg.sender, serviceAccountId);
+    }
+
     function settle() public virtual override nonReentrant {
         require(_state == ChallengeState.VerifyPending, "Not ready to settle");
         require(_verdictsCompleted == _participants.length, "Not all verdicts received");

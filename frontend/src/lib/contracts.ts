@@ -204,6 +204,10 @@ export const GROUP_CHALLENGE_ABI = [
   ...BASE_CHALLENGE_ABI,
   { type: "function", name: "join", inputs: [], outputs: [], stateMutability: "payable" },
   {
+    type: "function", name: "joinAndBind",
+    inputs: [{ name: "serviceAccountId", type: "string" }], outputs: [], stateMutability: "payable",
+  },
+  {
     type: "function", name: "pendingWithdrawals",
     inputs: [{ name: "user", type: "address" }], outputs: [{ type: "uint256" }], stateMutability: "view",
   },

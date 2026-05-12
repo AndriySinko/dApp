@@ -16,15 +16,13 @@ export function useJoinGroup(
     query: { enabled: !!txHash },
   });
 
-  const join = (amountWei: bigint) => {
+  const join = (amountWei: bigint, serviceAccountId?: string) => {
     if (!challengeAddress) return;
-    writeContract({
-      address: challengeAddress,
-      abi,
-      functionName: "join",
-      args: [],
-      value: amountWei,
-    });
+    if (serviceAccountId) {
+      writeContract({ address: challengeAddress, abi, functionName: "joinAndBind", args: [serviceAccountId], value: amountWei });
+    } else {
+      writeContract({ address: challengeAddress, abi, functionName: "join", args: [], value: amountWei });
+    }
   };
 
   return { join, txHash, isPending, isConfirming, isSuccess, error, reset };

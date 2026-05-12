@@ -1,17 +1,13 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { parseEther } from "viem";
-import { useAccount, useWriteContract, useWaitForTransactionReceipt } from "wagmi";
+import { useAccount } from "wagmi";
 import type { Challenge, BetSide } from "@/lib/types";
 import { pct, multiplier, formatEth } from "@/lib/utils";
 import { TxButton } from "./TxButton";
 import { usePlaceBet } from "@/lib/hooks/usePlaceBet";
 import { useJoinGroup } from "@/lib/hooks/useJoinGroup";
-
-const BIND_ABI = [
-  { type: "function", name: "bindAccount", inputs: [{ name: "serviceAccountId", type: "string" }], outputs: [], stateMutability: "nonpayable" },
-] as const;
 
 function detectServiceLabel(criteria: string): string {
   if (criteria.startsWith("chess:"))      return "Chess.com username";
@@ -59,11 +55,6 @@ export function BetPanel({ challenge }: { challenge: Challenge }) {
     placeBet(side === "FOR", amountWei);
   };
 
-  const handleJoin = () => {
-    if (!challengeAddress) return;
-    join(parseEther(amount || "0"));
-  };
-
   const isGroupType = challenge.type === "GROUP" || challenge.type === "PUBLIC";
   const canAct = challenge.state === "JOIN_OPEN" && !!challengeAddress;
 
@@ -71,21 +62,11 @@ export function BetPanel({ challenge }: { challenge: Challenge }) {
   const [username, setUsername] = useState("");
   const serviceLabel = detectServiceLabel(challenge.criteria ?? "");
 
-  // Step 2: bind after join succeeds
-  const { writeContract: writeBind, data: bindTxHash, isPending: bindPending, error: bindError } = useWriteContract();
-  const { isSuccess: bindSuccess, isLoading: bindConfirming } = useWaitForTransactionReceipt({
-    hash: bindTxHash,
-    query: { enabled: !!bindTxHash },
-  });
-
-  useEffect(() => {
-    if (joinSuccess && isApiOracle && username.trim() && challengeAddress) {
-      writeBind({ address: challengeAddress, abi: BIND_ABI, functionName: "bindAccount", args: [username.trim()] });
-    }
-  }, [joinSuccess]);
-
-  const joinDone = isApiOracle ? (joinSuccess && bindSuccess) : joinSuccess;
-  const joinInProgress = joinPending || joinConfirming || (joinSuccess && isApiOracle && (bindPending || bindConfirming));
+  const handleJoin = () => {
+    if (!challengeAddress) return;
+    const amountWei = parseEther(amount || "0");
+    join(amountWei, isApiOracle ? username.trim() : undefined);
+  };
 
   if (isGroupType) {
     return (
@@ -130,18 +111,10 @@ export function BetPanel({ challenge }: { challenge: Challenge }) {
                 <span style={{ color: "var(--win)" }}>flat prize / winners</span>
               </div>
             )}
-            {isApiOracle && joinSuccess && !bindSuccess && (
-              <div className="row" style={{ justifyContent: "space-between" }}>
-                <span className="muted">Step</span>
-                <span style={{ color: "var(--acc)" }}>
-                  {bindPending || bindConfirming ? "2/2 — binding account…" : "2/2 — confirm bind in wallet"}
-                </span>
-              </div>
-            )}
           </div>
-          {(joinError || bindError) && (
+          {joinError && (
             <div className="muted" style={{ fontSize: 11, color: "var(--loss)", marginBottom: 10, fontFamily: "var(--f-mono)" }}>
-              {((joinError || bindError) as Error).message?.slice(0, 80)}
+              {(joinError as Error).message?.slice(0, 80)}
             </div>
           )}
           <TxButton
@@ -154,8 +127,8 @@ export function BetPanel({ challenge }: { challenge: Challenge }) {
             className="btn primary lg"
             style={{ width: "100%", justifyContent: "center" }}
             onSubmit={canAct && (!isApiOracle || username.trim()) ? handleJoin : undefined}
-            isPending={joinInProgress}
-            isSuccess={joinDone}
+            isPending={joinPending || joinConfirming}
+            isSuccess={joinSuccess}
             disabled={!canAct || (isApiOracle && !username.trim())}
           />
         </div>
