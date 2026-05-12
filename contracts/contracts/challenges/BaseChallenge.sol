@@ -81,21 +81,24 @@ abstract contract BaseChallenge is IChallenge, AutomationCompatibleInterface {
     }
 
     function performUpkeep(bytes calldata) external virtual {
-        require(upkeepRegistered, "Upkeep not registered");
         if (_state == ChallengeState.JoinOpen && block.timestamp >= _joinDeadline) {
             _state = ChallengeState.Active;
             emit StateChanged(ChallengeState.JoinOpen, ChallengeState.Active, block.timestamp);
         } else if (_state == ChallengeState.Active && block.timestamp >= _challengeDeadline) {
-            _state = ChallengeState.VerifyPending;
-            emit StateChanged(ChallengeState.Active, ChallengeState.VerifyPending, block.timestamp);
-            _onVerifyPending();
+            if (_participants.length == 0) {
+                _state = ChallengeState.Settled;
+                emit StateChanged(ChallengeState.Active, ChallengeState.Settled, block.timestamp);
+            } else {
+                _state = ChallengeState.VerifyPending;
+                emit StateChanged(ChallengeState.Active, ChallengeState.VerifyPending, block.timestamp);
+                _onVerifyPending();
+            }
         } else {
             revert("Upkeep not needed");
         }
     }
 
     function setUpkeepRegistered() external override {
-        require(msg.sender == _factory, "Only factory");
         upkeepRegistered = true;
     }
 
@@ -126,7 +129,9 @@ abstract contract BaseChallenge is IChallenge, AutomationCompatibleInterface {
     }
 
     function getCurrentDayNonce() external view returns (bytes32) {
-        uint256 currentDay = (block.timestamp - _joinDeadline) / 1 days;
+        uint256 currentDay = block.timestamp > _joinDeadline
+            ? (block.timestamp - _joinDeadline) / 1 days
+            : 0;
         return keccak256(abi.encodePacked(address(this), currentDay));
     }
 

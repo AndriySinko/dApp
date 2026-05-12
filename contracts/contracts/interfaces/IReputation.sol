@@ -6,4 +6,5 @@ interface IReputation {
     function batchUpdateRep(address[] calldata users, int256[] calldata deltas, address challenge) external;
     function getScore(address user) external view returns (int256);
     function authorize(address caller) external;
+    function authorizeChallenge(address challenge) external;
 }

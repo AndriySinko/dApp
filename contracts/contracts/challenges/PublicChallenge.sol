@@ -59,7 +59,7 @@ contract PublicChallenge is GroupChallenge {
         if (winnersCount == 0) {
             uint256 totalPool = loserPot + _prizePool;
             if (totalPool > 0) {
-                ITreasury(treasuryAddress).depositFee{value: totalPool}();
+                try ITreasury(treasuryAddress).depositFee{value: totalPool}() {} catch {}
             }
             for (uint256 i = 0; i < pLen; i++) {
                 address p = _participants[i];
@@ -67,7 +67,7 @@ contract PublicChallenge is GroupChallenge {
                 repUsers[repCount] = p; repDeltas[repCount] = -50; repCount++;
             }
             assembly { mstore(repUsers, repCount) mstore(repDeltas, repCount) }
-            IReputation(reputationAddress).batchUpdateRep(repUsers, repDeltas, address(this));
+            try IReputation(reputationAddress).batchUpdateRep(repUsers, repDeltas, address(this)) {} catch {}
             emit Settled(0, losersCount, 0, totalPool, block.timestamp);
             return;
         }
@@ -85,10 +85,10 @@ contract PublicChallenge is GroupChallenge {
                 repUsers[repCount] = p; repDeltas[repCount] = 100; repCount++;
             }
             assembly { mstore(repUsers, repCount) mstore(repDeltas, repCount) }
-            IReputation(reputationAddress).batchUpdateRep(repUsers, repDeltas, address(this));
+            try IReputation(reputationAddress).batchUpdateRep(repUsers, repDeltas, address(this)) {} catch {}
             uint256 allWinDust = _prizePool - allWinBonus * winnersCount;
             if (allWinDust > 0) {
-                ITreasury(treasuryAddress).depositFee{value: allWinDust}();
+                try ITreasury(treasuryAddress).depositFee{value: allWinDust}() {} catch {}
             }
             emit Settled(winnersCount, 0, allWinDistributed, allWinDust, block.timestamp);
             return;
@@ -113,11 +113,11 @@ contract PublicChallenge is GroupChallenge {
         }
 
         assembly { mstore(repUsers, repCount) mstore(repDeltas, repCount) }
-        IReputation(reputationAddress).batchUpdateRep(repUsers, repDeltas, address(this));
+        try IReputation(reputationAddress).batchUpdateRep(repUsers, repDeltas, address(this)) {} catch {}
 
         uint256 dust = (totalWinnerStake + loserPot + _prizePool) - totalDistributed;
         if (dust > 0) {
-            ITreasury(treasuryAddress).depositFee{value: dust}();
+            try ITreasury(treasuryAddress).depositFee{value: dust}() {} catch {}
         }
 
         emit Settled(winnersCount, losersCount, totalDistributed, dust, block.timestamp);

@@ -7,6 +7,7 @@ import "@openzeppelin/contracts/access/Ownable.sol";
 contract Reputation is Ownable, IReputation {
     mapping(address => int256) scores;
     mapping(address => bool)   authorized;
+    address public factory;
 
     modifier onlyAuthorized() {
         require(authorized[msg.sender], "Not authorized");
@@ -22,6 +23,19 @@ contract Reputation is Ownable, IReputation {
     );
 
     constructor(address initialOwner) Ownable(initialOwner) {}
+
+    function setFactory(address _factory) external onlyOwner {
+        require(factory == address(0), "Already set");
+        require(_factory != address(0), "Zero address");
+        factory = _factory;
+    }
+
+    // Called by factory to authorize each newly deployed challenge contract
+    function authorizeChallenge(address challenge) external {
+        require(msg.sender == factory, "Only factory");
+        require(challenge != address(0), "Zero address");
+        authorized[challenge] = true;
+    }
 
     function authorize(address caller) external onlyOwner {
         require(caller != address(0), "Zero address");

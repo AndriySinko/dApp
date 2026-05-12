@@ -183,7 +183,7 @@ function extract(data, path) {
 // ── Source executors ─────────────────────────────────────────────────────────
 
 async function executeSource(src) {
-    if (src._legacy) return executeLegacySource(src);
+    if (src._legacy || src._service) return executeLegacySource(src);
 
     if (src.type === "http" || !src.type) {
         const url = interpolate(src.url);

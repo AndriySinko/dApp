@@ -21,4 +21,5 @@ contract MockReputation is IReputation {
     }
 
     function authorize(address) external override {}
+    function authorizeChallenge(address) external override {}
 }

@@ -6,12 +6,22 @@ import "../interfaces/IChallenge.sol";
 import {FunctionsClient}  from "@chainlink/contracts/src/v0.8/functions/v1_0_0/FunctionsClient.sol";
 import {FunctionsRequest} from "@chainlink/contracts/src/v0.8/functions/v1_0_0/libraries/FunctionsRequest.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
+import "@openzeppelin/contracts/utils/Strings.sol";
+
+interface IChallengeMeta {
+    function joinDeadline()      external view returns (uint256);
+    function challengeDeadline() external view returns (uint256);
+}
 
 contract ApiOracleVerifier is IVerifier, FunctionsClient, Ownable {
     using FunctionsRequest for FunctionsRequest.Request;
 
     // Gas budget given to fulfillRequest when the DON calls back.
-    uint32 public constant CALLBACK_GAS_LIMIT = 200_000;
+    uint32 public callbackGasLimit = 500_000;
+
+    function setCallbackGasLimit(uint32 limit) external onlyOwner {
+        callbackGasLimit = limit;
+    }
 
     struct PendingRequest {
         address challengeAddress;
@@ -133,15 +143,20 @@ contract ApiOracleVerifier is IVerifier, FunctionsClient, Ownable {
     ) private returns (bytes32 requestId) {
         (string memory criteria, string memory serviceAccountId) = abi.decode(params, (string, string));
 
-        string[] memory args = new string[](2);
+        uint256 startEpoch = IChallengeMeta(challengeAddress).joinDeadline();
+        uint256 endEpoch   = IChallengeMeta(challengeAddress).challengeDeadline();
+
+        string[] memory args = new string[](4);
         args[0] = criteria;
         args[1] = serviceAccountId;
+        args[2] = Strings.toString(startEpoch);
+        args[3] = Strings.toString(endEpoch);
 
         FunctionsRequest.Request memory req;
         req.initializeRequestForInlineJavaScript(jsSource);
         req.setArgs(args);
 
-        requestId = _sendRequest(req.encodeCBOR(), subscriptionId, CALLBACK_GAS_LIMIT, donId);
+        requestId = _sendRequest(req.encodeCBOR(), subscriptionId, callbackGasLimit, donId);
 
         _pendingRequests[requestId]                          = PendingRequest(challengeAddress, participant);
         _activeRequestId[challengeAddress][participant]      = requestId;

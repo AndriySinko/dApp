@@ -182,10 +182,12 @@ contract ChallengeFactory {
             );
         }
 
-        IReputation(reputationAddress).authorize(challengeAddress);
+        IReputation(reputationAddress).authorizeChallenge(challengeAddress);
         ITreasury(treasuryAddress).authorizeChallenge(challengeAddress);
 
-        uint256 upkeepId = IAutomationRegistrar(automationRegistry).registerUpkeep(
+        // Register Chainlink Automation upkeep — non-reverting so challenge creation
+        // always succeeds even if the registrar rejects (owner can register manually).
+        try IAutomationRegistrar(automationRegistry).registerUpkeep(
             IAutomationRegistrar.RegistrationParams({
                 name:           title,
                 encryptedEmail: bytes(""),
@@ -198,10 +200,14 @@ contract ChallengeFactory {
                 offchainConfig: bytes(""),
                 amount:         uint96(UPKEEP_FUNDING)
             })
-        );
-        require(upkeepId != 0, "Upkeep registration failed");
-
-        IChallenge(challengeAddress).setUpkeepRegistered();
+        ) returns (uint256 upkeepId) {
+            if (upkeepId != 0) {
+                IChallenge(challengeAddress).setUpkeepRegistered();
+            }
+        } catch {
+            // Upkeep registration failed — challenge created but Automation not active.
+            // Register manually at automation.chain.link if needed.
+        }
 
         allChallenges.push(challengeAddress);
         challengeInfos[challengeAddress] = ChallengeInfo({

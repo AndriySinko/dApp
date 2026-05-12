@@ -3,7 +3,7 @@ import * as fs from "fs";
 import * as path from "path";
 
 // ── Sepolia constants ─────────────────────────────────────────────────────────
-const AUTOMATION_REGISTRY  = "0x86EFBD0b6736Bed994962f9797049422A3A8E8Ad";
+const AUTOMATION_REGISTRAR = "0xb0E49c5D0d05cbc241d68c05BC5BA1d1B7B72976"; // Sepolia Automation Registrar (registers new upkeeps)
 const LINK_TOKEN           = "0x779877A7B0D9E8603169DdbD7836e478b4624789";
 const CL_FUNCTIONS_ROUTER  = "0xb83E47C2bC239B3bf370bc41e1459A34b41238D0";
 // "fun-ethereum-sepolia-1" encoded as bytes32
@@ -94,7 +94,7 @@ async function main() {
         await onChain.getAddress(),
         await apiOracle.getAddress(),
         await aiOracle.getAddress(),
-        AUTOMATION_REGISTRY,
+        AUTOMATION_REGISTRAR,
         LINK_TOKEN,
         await individualDeployer.getAddress(),
         await groupDeployer.getAddress(),
@@ -126,8 +126,8 @@ async function main() {
     // reputation.authorize(factory): factory calls reputation.authorize(challenge) for each new challenge
     // treasury.authorize(governance): tickEpoch calls treasury.withdrawPrizePool()
     console.log("\nConfiguring permissions...");
-    await (await reputation.authorize(await factory.getAddress())).wait();
-    console.log("reputation.authorize(factory) ✓");
+    await (await reputation.setFactory(await factory.getAddress())).wait();
+    console.log("reputation.setFactory(factory) ✓");
 
     await (await treasury.authorize(await governance.getAddress())).wait();
     console.log("treasury.authorize(governance) ✓");
@@ -138,35 +138,8 @@ async function main() {
     // ── 8. Register Chainlink Automation upkeep for governance ────────────────
     // Governance contract now implements checkUpkeep/performUpkeep so Chainlink
     // will automatically call tickEpoch() when each epoch ends.
-    console.log("\nRegistering governance upkeep...");
-    const GOVERNANCE_UPKEEP_FUNDING = ethers.parseEther("2"); // 2 LINK
-    const linkContract = await ethers.getContractAt("IERC20", LINK_TOKEN);
-    const linkBalance  = await linkContract.balanceOf(deployer.address);
-    if (linkBalance >= GOVERNANCE_UPKEEP_FUNDING) {
-        await (await linkContract.approve(AUTOMATION_REGISTRY, GOVERNANCE_UPKEEP_FUNDING)).wait();
-        // Use same IAutomationRegistrar interface as ChallengeFactory
-        const registrarAbi = [
-            "function registerUpkeep(tuple(string name, bytes encryptedEmail, address upkeepContract, uint32 gasLimit, address adminAddress, uint8 triggerType, bytes checkData, bytes triggerConfig, bytes offchainConfig, uint96 amount) requestParams) external returns (uint256 id)"
-        ];
-        const registrar = new ethers.Contract(AUTOMATION_REGISTRY, registrarAbi, deployer);
-        const tx = await registrar.registerUpkeep({
-            name:           "PACT Governance tickEpoch",
-            encryptedEmail: "0x",
-            upkeepContract: await governance.getAddress(),
-            gasLimit:       500000,
-            adminAddress:   deployer.address,
-            triggerType:    0,
-            checkData:      "0x",
-            triggerConfig:  "0x",
-            offchainConfig: "0x",
-            amount:         GOVERNANCE_UPKEEP_FUNDING,
-        });
-        await tx.wait();
-        console.log("Governance upkeep registered ✓ (2 LINK funded)");
-    } else {
-        console.warn("Warning: insufficient LINK — register governance upkeep manually at automation.chain.link");
-        console.warn(`  Contract to register: ${await governance.getAddress()}`);
-    }
+    console.log("\nGovernance upkeep: register manually at automation.chain.link");
+    console.warn(`  Contract to register: ${await governance.getAddress()}`);
 
     // ── 9. Print .env.local block ─────────────────────────────────────────────
     console.log("\n# ── Paste into frontend/.env.local ──────────────────────────");
@@ -188,7 +161,7 @@ async function main() {
     console.log(`npx hardhat verify --network sepolia ${await individualDeployer.getAddress()}  # IndividualChallengeDeployer`);
     console.log(`npx hardhat verify --network sepolia ${await groupDeployer.getAddress()}  # GroupChallengeDeployer`);
     console.log(`npx hardhat verify --network sepolia ${await publicDeployer.getAddress()}  # PublicChallengeDeployer`);
-    console.log(`npx hardhat verify --network sepolia ${await factory.getAddress()} "${await reputation.getAddress()}" "${await treasury.getAddress()}" "${await onChain.getAddress()}" "${await apiOracle.getAddress()}" "${await aiOracle.getAddress()}" "${AUTOMATION_REGISTRY}" "${LINK_TOKEN}" "${await individualDeployer.getAddress()}" "${await groupDeployer.getAddress()}" "${await publicDeployer.getAddress()}"`);
+    console.log(`npx hardhat verify --network sepolia ${await factory.getAddress()} "${await reputation.getAddress()}" "${await treasury.getAddress()}" "${await onChain.getAddress()}" "${await apiOracle.getAddress()}" "${await aiOracle.getAddress()}" "${AUTOMATION_REGISTRAR}" "${LINK_TOKEN}" "${await individualDeployer.getAddress()}" "${await groupDeployer.getAddress()}" "${await publicDeployer.getAddress()}"`);
     console.log(`npx hardhat verify --network sepolia ${await governance.getAddress()} "${await reputation.getAddress()}" "${await treasury.getAddress()}" "${await factory.getAddress()}" "${LINK_TOKEN}" ${EPOCH_DURATION_SECS} "${deployer.address}"`);
 }
 

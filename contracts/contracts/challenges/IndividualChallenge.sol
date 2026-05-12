@@ -86,6 +86,7 @@ contract IndividualChallenge is BaseChallenge, ReentrancyGuard {
 
     function placeBet(bool side) external payable {
         require(_state == ChallengeState.JoinOpen, "Betting closed");
+        require(block.timestamp < _joinDeadline, "Join deadline has passed");
         require(!_isRegistered[msg.sender], "Already registered");
         require(msg.value > 0, "Must send ETH");
 
@@ -137,10 +138,11 @@ contract IndividualChallenge is BaseChallenge, ReentrancyGuard {
         uint256 winnerPot = _againstPool - fee;
 
         if (fee > 0) {
-            ITreasury(treasuryAddress).depositFee{value: fee}();
+            try ITreasury(treasuryAddress).depositFee{value: fee}() {} catch {}
         }
 
         uint256 totalDistributed;
+        uint256 distributedWinnings;
         uint256 winnersCount;
         uint256 losersCount;
 
@@ -152,7 +154,8 @@ contract IndividualChallenge is BaseChallenge, ReentrancyGuard {
         uint256 creatorWinnings = (_buyIn * winnerPot) / _forPool;
         uint256 creatorPayout   = _buyIn + creatorWinnings;
         pendingWithdrawals[_creator] += creatorPayout;
-        totalDistributed += creatorPayout;
+        totalDistributed     += creatorPayout;
+        distributedWinnings  += creatorWinnings;
         winnersCount++;
         emit ParticipantSettled(_creator, true, creatorPayout, int256(creatorWinnings));
         repUsers[repCount] = _creator; repDeltas[repCount] = 100; repCount++;
@@ -163,7 +166,8 @@ contract IndividualChallenge is BaseChallenge, ReentrancyGuard {
                 uint256 winnings = (_stakes[p] * winnerPot) / _forPool;
                 uint256 payout   = _stakes[p] + winnings;
                 pendingWithdrawals[p] += payout;
-                totalDistributed += payout;
+                totalDistributed    += payout;
+                distributedWinnings += winnings;
                 winnersCount++;
                 emit ParticipantSettled(p, true, payout, int256(winnings));
                 repUsers[repCount] = p; repDeltas[repCount] = 25; repCount++;
@@ -174,9 +178,15 @@ contract IndividualChallenge is BaseChallenge, ReentrancyGuard {
         }
 
         assembly { mstore(repUsers, repCount) mstore(repDeltas, repCount) }
-        IReputation(reputationAddress).batchUpdateRep(repUsers, repDeltas, address(this));
+        try IReputation(reputationAddress).batchUpdateRep(repUsers, repDeltas, address(this)) {} catch {}
 
-        emit Settled(winnersCount, losersCount, totalDistributed, fee, block.timestamp);
+        // Send integer-division dust to treasury so no ETH is permanently stuck
+        uint256 dust = winnerPot - distributedWinnings;
+        if (dust > 0) {
+            try ITreasury(treasuryAddress).depositFee{value: dust}() {} catch {}
+        }
+
+        emit Settled(winnersCount, losersCount, totalDistributed, fee + dust, block.timestamp);
     }
 
     function _settleAgainstWins() private {
@@ -189,10 +199,11 @@ contract IndividualChallenge is BaseChallenge, ReentrancyGuard {
         uint256 overflow        = grossWinnerPot - cappedWinnerPot;
 
         if (fee + overflow > 0) {
-            ITreasury(treasuryAddress).depositFee{value: fee + overflow}();
+            try ITreasury(treasuryAddress).depositFee{value: fee + overflow}() {} catch {}
         }
 
         uint256 totalDistributed;
+        uint256 distributedWinnings;
         uint256 winnersCount;
         uint256 losersCount;
 
@@ -213,7 +224,8 @@ contract IndividualChallenge is BaseChallenge, ReentrancyGuard {
                     : 0;
                 uint256 payout   = _stakes[p] + winnings;
                 pendingWithdrawals[p] += payout;
-                totalDistributed += payout;
+                totalDistributed     += payout;
+                distributedWinnings  += winnings;
                 winnersCount++;
                 emit ParticipantSettled(p, true, payout, int256(winnings));
                 repUsers[repCount] = p; repDeltas[repCount] = 25; repCount++;
@@ -224,9 +236,15 @@ contract IndividualChallenge is BaseChallenge, ReentrancyGuard {
         }
 
         assembly { mstore(repUsers, repCount) mstore(repDeltas, repCount) }
-        IReputation(reputationAddress).batchUpdateRep(repUsers, repDeltas, address(this));
+        try IReputation(reputationAddress).batchUpdateRep(repUsers, repDeltas, address(this)) {} catch {}
 
-        emit Settled(winnersCount, losersCount, totalDistributed, fee + overflow, block.timestamp);
+        // Send integer-division dust to treasury so no ETH is permanently stuck
+        uint256 dust = cappedWinnerPot - distributedWinnings;
+        if (dust > 0) {
+            try ITreasury(treasuryAddress).depositFee{value: dust}() {} catch {}
+        }
+
+        emit Settled(winnersCount, losersCount, totalDistributed, fee + overflow + dust, block.timestamp);
     }
 
     function withdraw() external nonReentrant {

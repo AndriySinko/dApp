@@ -24,7 +24,11 @@ interface IAiChallenge {
 contract AiOracleVerifier is IVerifier, FunctionsClient, Ownable {
     using FunctionsRequest for FunctionsRequest.Request;
 
-    uint32 public constant CALLBACK_GAS_LIMIT = 300_000;
+    uint32 public callbackGasLimit = 500_000;
+
+    function setCallbackGasLimit(uint32 limit) external onlyOwner {
+        callbackGasLimit = limit;
+    }
 
     struct PendingRequest {
         address challengeAddress;
@@ -179,7 +183,7 @@ contract AiOracleVerifier is IVerifier, FunctionsClient, Ownable {
         req.addDONHostedSecrets(secretsSlotId, secretsVersion);
         req.setArgs(args);
 
-        requestId = _sendRequest(req.encodeCBOR(), subscriptionId, CALLBACK_GAS_LIMIT, donId);
+        requestId = _sendRequest(req.encodeCBOR(), subscriptionId, callbackGasLimit, donId);
 
         _pendingRequests[requestId]                     = PendingRequest(challengeAddress, participant);
         _activeRequestId[challengeAddress][participant] = requestId;
