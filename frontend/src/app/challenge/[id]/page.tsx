@@ -88,9 +88,9 @@ export default function ChallengePage() {
   const PERF_ABI = [{ type: "function", name: "performUpkeep", inputs: [{ type: "bytes" }], outputs: [], stateMutability: "nonpayable" }] as const;
   const { writeContract: performUpkeep, isPending: isAdvancing } = useWriteContract();
 
-  const forPool    = chainData.forPool     ? parseFloat(formatEther(chainData.forPool))     : 0;
-  const againstPool = chainData.againstPool ? parseFloat(formatEther(chainData.againstPool)) : 0;
-  const buyIn       = chainData.buyIn       ? parseFloat(formatEther(chainData.buyIn))       : 0;
+  const forPool    = chainData.forPool     != null ? parseFloat(formatEther(chainData.forPool))     : 0;
+  const againstPool = chainData.againstPool != null ? parseFloat(formatEther(chainData.againstPool)) : 0;
+  const buyIn       = chainData.buyIn       != null ? parseFloat(formatEther(chainData.buyIn))       : 0;
   const total       = forPool + againstPool + buyIn;
   const forP        = pct(forPool, againstPool);
   const agP         = 100 - forP;
@@ -323,8 +323,8 @@ export default function ChallengePage() {
                 <div className="divider" />
                 <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 20 }}>
                   <div className="col gap-2"><div className="eyebrow">Buy-in</div><div className="num-lg">{chainData.isLoading ? "…" : formatEth(challenge.buyIn)}</div></div>
-                  <div className="col gap-2"><div className="eyebrow">Join deadline</div><div className="num" style={{ fontSize: 14 }}>{challenge.joinDeadline.toUTCString().slice(0, 22)}</div></div>
-                  <div className="col gap-2"><div className="eyebrow">Challenge deadline</div><div className="num" style={{ fontSize: 14 }}>{challenge.challengeDeadline.toUTCString().slice(0, 22)}</div></div>
+                  <div className="col gap-2"><div className="eyebrow">Join deadline</div><div className="num" style={{ fontSize: 14 }}>{challenge.joinDeadline.toLocaleString()}</div></div>
+                  <div className="col gap-2"><div className="eyebrow">Challenge deadline</div><div className="num" style={{ fontSize: 14 }}>{challenge.challengeDeadline.toLocaleString()}</div></div>
                   <div className="col gap-2"><div className="eyebrow">Type</div><span className="tag">{TYPE_LABEL[challenge.type]}</span></div>
                   <div className="col gap-2"><div className="eyebrow">Creator</div><div className="mono" style={{ fontSize: 12 }}>{challenge.creator}</div></div>
                 </div>

@@ -33,7 +33,10 @@ export const TYPE_LABEL: Record<string, string> = {
 };
 
 export function formatEth(n: number): string {
-  return `Ξ ${n.toFixed(2)}`;
+  if (n === 0) return "Ξ 0";
+  if (n >= 1) return `Ξ ${n.toFixed(2)}`;
+  if (n >= 0.01) return `Ξ ${n.toFixed(4)}`;
+  return `Ξ ${n.toFixed(6)}`;
 }
 
 export function pct(a: number, b: number): number {

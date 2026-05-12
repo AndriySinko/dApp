@@ -4,7 +4,8 @@ import { VERIFIER_ICON, VERIFIER_LABEL, TYPE_LABEL, pct, formatEth } from "@/lib
 import { StateIndicator } from "./StateIndicator";
 
 export function ChallengeCard({ c }: { c: Challenge }) {
-  const forP = pct(c.forPool ?? 0, c.againstPool ?? 0);
+  const effectiveForPool = c.type === "INDIVIDUAL" ? (c.forPool || c.buyIn) : (c.forPool ?? 0);
+  const forP = pct(effectiveForPool, c.againstPool ?? 0);
   const agP  = 100 - forP;
   const hasMarket = c.type === "INDIVIDUAL" && (c.forPool !== undefined || c.againstPool !== undefined);
   const tvl = c.type === "INDIVIDUAL"
