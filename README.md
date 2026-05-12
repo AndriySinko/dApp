@@ -103,16 +103,16 @@ Both state transitions are driven automatically by Chainlink Automation — no m
 
 | Contract | Address | Verified |
 |---|---|---|
-| ChallengeFactory | `0xEe4BD2DF1A4bEeE95B2f2a4294aC5505D2c4E63A` | [Etherscan ↗](https://sepolia.etherscan.io/address/0xEe4BD2DF1A4bEeE95B2f2a4294aC5505D2c4E63A#code) |
-| PublicGovernance | `0x357b38fb575Efb7C87B5ae3624ae1BA364612C1b` | [Etherscan ↗](https://sepolia.etherscan.io/address/0x357b38fb575Efb7C87B5ae3624ae1BA364612C1b#code) |
-| Treasury | `0x7Bed6b0c62E9C377d94D5bE96f478ea5Aa879CA5` | [Etherscan ↗](https://sepolia.etherscan.io/address/0x7Bed6b0c62E9C377d94D5bE96f478ea5Aa879CA5#code) |
-| Reputation | `0x91Eb85782fe19056f4EC8837e2B66fb5650CB782` | [Etherscan ↗](https://sepolia.etherscan.io/address/0x91Eb85782fe19056f4EC8837e2B66fb5650CB782#code) |
-| OnChainVerifier | `0x2e914A5ac4fCddA017e2010aBe361837Bd4D1A10` | [Etherscan ↗](https://sepolia.etherscan.io/address/0x2e914A5ac4fCddA017e2010aBe361837Bd4D1A10#code) |
-| ApiOracleVerifier | `0x2300EC5dEAf26161FC5443C289E7623eC6B8F7D2` | [Etherscan ↗](https://sepolia.etherscan.io/address/0x2300EC5dEAf26161FC5443C289E7623eC6B8F7D2#code) |
-| AiOracleVerifier | `0xCFd57B1c577cCf2023575000ea7E5F8aF6Cd5D79` | [Etherscan ↗](https://sepolia.etherscan.io/address/0xCFd57B1c577cCf2023575000ea7E5F8aF6Cd5D79#code) |
-| IndividualChallengeDeployer | `0xDBd6BEc16451BB680e0ef6E920E8B054B71bB10e` | [Etherscan ↗](https://sepolia.etherscan.io/address/0xDBd6BEc16451BB680e0ef6E920E8B054B71bB10e#code) |
-| GroupChallengeDeployer | `0x0cb81bB988e079366FA34C96f02f29749F2dE7A3` | [Etherscan ↗](https://sepolia.etherscan.io/address/0x0cb81bB988e079366FA34C96f02f29749F2dE7A3#code) |
-| PublicChallengeDeployer | `0x7776366a53e4f808D310A116F40438c890e99143` | [Etherscan ↗](https://sepolia.etherscan.io/address/0x7776366a53e4f808D310A116F40438c890e99143#code) |
+| ChallengeFactory | `0x72a9E77C2B95b6BB096e66bA08e6A2B826d48191` | [Etherscan ↗](https://sepolia.etherscan.io/address/0x72a9E77C2B95b6BB096e66bA08e6A2B826d48191#code) |
+| PublicGovernance | `0x3217180ddbFc06B6f331dd986159f4E6ABE77c60` | [Etherscan ↗](https://sepolia.etherscan.io/address/0x3217180ddbFc06B6f331dd986159f4E6ABE77c60#code) |
+| Treasury | `0x42B6f9fd70D3d5721742eE448C0070ABcCAef2Dc` | [Etherscan ↗](https://sepolia.etherscan.io/address/0x42B6f9fd70D3d5721742eE448C0070ABcCAef2Dc#code) |
+| Reputation | `0x30A4dEA4Aa89c6005b7FBFbCBcc3329756C7D3cd` | [Etherscan ↗](https://sepolia.etherscan.io/address/0x30A4dEA4Aa89c6005b7FBFbCBcc3329756C7D3cd#code) |
+| OnChainVerifier | `0x545c735810Da55B73d80E0E1de9aEec066d2388c` | [Etherscan ↗](https://sepolia.etherscan.io/address/0x545c735810Da55B73d80E0E1de9aEec066d2388c#code) |
+| ApiOracleVerifier | `0xdEDd000D43F867baF6045C20a98dFf3b98CD1E80` | [Etherscan ↗](https://sepolia.etherscan.io/address/0xdEDd000D43F867baF6045C20a98dFf3b98CD1E80#code) |
+| AiOracleVerifier | `0x0f9C3898F81ab5B675D071A1916Ce6Ee0dc4BA69` | [Etherscan ↗](https://sepolia.etherscan.io/address/0x0f9C3898F81ab5B675D071A1916Ce6Ee0dc4BA69#code) |
+| IndividualChallengeDeployer | `0x758dE2dc95d2c9764c797fae57e8C3D501C61b7a` | [Etherscan ↗](https://sepolia.etherscan.io/address/0x758dE2dc95d2c9764c797fae57e8C3D501C61b7a#code) |
+| GroupChallengeDeployer | `0x078dE8683bbe572d8d1DBA032318853e6AAC8717` | [Etherscan ↗](https://sepolia.etherscan.io/address/0x078dE8683bbe572d8d1DBA032318853e6AAC8717#code) |
+| PublicChallengeDeployer | `0x9287eAA4184d8945CC440d323735293102e02E85` | [Etherscan ↗](https://sepolia.etherscan.io/address/0x9287eAA4184d8945CC440d323735293102e02E85#code) |
 
 All contracts are verified on Sepolia Etherscan with full source code visible.
 
@@ -187,21 +187,21 @@ PRIVATE_KEY=your_deployer_wallet_private_key
 ETHERSCAN_API_KEY=your_etherscan_api_key
 CHAINLINK_SUBSCRIPTION_ID=your_chainlink_functions_subscription_id
 GEMINI_API_KEY=your_gemini_api_key
-AI_ORACLE_VERIFIER=0xCFd57B1c577cCf2023575000ea7E5F8aF6Cd5D79
-API_VERIFIER=0x2300EC5dEAf26161FC5443C289E7623eC6B8F7D2
+AI_ORACLE_VERIFIER=0x0f9C3898F81ab5B675D071A1916Ce6Ee0dc4BA69
+API_VERIFIER=0xdEDd000D43F867baF6045C20a98dFf3b98CD1E80
 ```
 
 ### `frontend/.env.local`
 
 ```env
 NEXT_PUBLIC_ALCHEMY_RPC=https://eth-sepolia.g.alchemy.com/v2/YOUR_KEY
-NEXT_PUBLIC_FACTORY_ADDRESS=0xEe4BD2DF1A4bEeE95B2f2a4294aC5505D2c4E63A
-NEXT_PUBLIC_GOVERNANCE_ADDRESS=0x357b38fb575Efb7C87B5ae3624ae1BA364612C1b
-NEXT_PUBLIC_TREASURY_ADDRESS=0x7Bed6b0c62E9C377d94D5bE96f478ea5Aa879CA5
-NEXT_PUBLIC_REPUTATION_ADDRESS=0x91Eb85782fe19056f4EC8837e2B66fb5650CB782
-NEXT_PUBLIC_ONCHAIN_VERIFIER=0x2e914A5ac4fCddA017e2010aBe361837Bd4D1A10
-NEXT_PUBLIC_API_VERIFIER=0x2300EC5dEAf26161FC5443C289E7623eC6B8F7D2
-NEXT_PUBLIC_AI_VERIFIER=0xCFd57B1c577cCf2023575000ea7E5F8aF6Cd5D79
+NEXT_PUBLIC_FACTORY_ADDRESS=0x72a9E77C2B95b6BB096e66bA08e6A2B826d48191
+NEXT_PUBLIC_GOVERNANCE_ADDRESS=0x3217180ddbFc06B6f331dd986159f4E6ABE77c60
+NEXT_PUBLIC_TREASURY_ADDRESS=0x42B6f9fd70D3d5721742eE448C0070ABcCAef2Dc
+NEXT_PUBLIC_REPUTATION_ADDRESS=0x30A4dEA4Aa89c6005b7FBFbCBcc3329756C7D3cd
+NEXT_PUBLIC_ONCHAIN_VERIFIER=0x545c735810Da55B73d80E0E1de9aEec066d2388c
+NEXT_PUBLIC_API_VERIFIER=0xdEDd000D43F867baF6045C20a98dFf3b98CD1E80
+NEXT_PUBLIC_AI_VERIFIER=0x0f9C3898F81ab5B675D071A1916Ce6Ee0dc4BA69
 NEXT_PUBLIC_PINATA_JWT=your_pinata_jwt
 NEXT_PUBLIC_SQUID_URL=https://656385f6-777f-4b75-ab45-d97a4dcf588a.squids.live/pact-squid@v1/api/graphql
 NEXT_PUBLIC_CHAIN_ID=11155111

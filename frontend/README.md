@@ -1,32 +1,36 @@
-# PACT — Frontend
-
-Commitment protocol on Ethereum Sepolia. Users stake ETH on personal goals verified by on-chain data, Chainlink API oracle, or Gemini AI.
-
-## Deployed Contracts (Sepolia)
-
-| Contract | Address | Etherscan |
-|----------|---------|-----------|
-| ChallengeFactory | `0x72a9E77C2B95b6BB096e66bA08e6A2B826d48191` | [view](https://sepolia.etherscan.io/address/0x72a9E77C2B95b6BB096e66bA08e6A2B826d48191) |
-| PublicGovernance | `0x3217180ddbFc06B6f331dd986159f4E6ABE77c60` | [view](https://sepolia.etherscan.io/address/0x3217180ddbFc06B6f331dd986159f4E6ABE77c60) |
-| Treasury | `0x42B6f9fd70D3d5721742eE448C0070ABcCAef2Dc` | [view](https://sepolia.etherscan.io/address/0x42B6f9fd70D3d5721742eE448C0070ABcCAef2Dc) |
-| Reputation | `0x30A4dEA4Aa89c6005b7FBFbCBcc3329756C7D3cd` | [view](https://sepolia.etherscan.io/address/0x30A4dEA4Aa89c6005b7FBFbCBcc3329756C7D3cd) |
-| OnChainVerifier | `0x545c735810Da55B73d80E0E1de9aEec066d2388c` | [view](https://sepolia.etherscan.io/address/0x545c735810Da55B73d80E0E1de9aEec066d2388c) |
-| ApiOracleVerifier | `0xdEDd000D43F867baF6045C20a98dFf3b98CD1E80` | [view](https://sepolia.etherscan.io/address/0xdEDd000D43F867baF6045C20a98dFf3b98CD1E80) |
-| AiOracleVerifier | `0x0f9C3898F81ab5B675D071A1916Ce6Ee0dc4BA69` | [view](https://sepolia.etherscan.io/address/0x0f9C3898F81ab5B675D071A1916Ce6Ee0dc4BA69) |
+This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
 
 ## Getting Started
 
+First, run the development server:
+
 ```bash
-npm install
 npm run dev
+# or
+yarn dev
+# or
+pnpm dev
+# or
+bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000).
+Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
 
-## Stack
+You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
 
-- Next.js 14, TypeScript, wagmi v2
-- Solidity 0.8.24, Hardhat
-- Chainlink Automation + Functions
-- Subsquid indexer
-- IPFS via Pinata
+This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+
+## Learn More
+
+To learn more about Next.js, take a look at the following resources:
+
+- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
+- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+
+You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+
+## Deploy on Vercel
+
+The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+
+Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
