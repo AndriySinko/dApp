@@ -50,6 +50,7 @@ function toEth(wei: string | null): number {
 }
 
 function mapChallenge(r: RawChallenge): Challenge {
+    const isGroup = r.type === "GROUP" || r.type === "PUBLIC";
     return {
         id: r.id,
         address: r.id,
@@ -65,8 +66,9 @@ function mapChallenge(r: RawChallenge): Challenge {
         criteria: r.criteria,
         forPool: toEth(r.forPool),
         againstPool: toEth(r.againstPool),
-        bettorsFor: r.bettorsFor ?? 0,
+        bettorsFor: isGroup ? 0 : (r.bettorsFor ?? 0),
         bettorsAgainst: r.bettorsAgainst ?? 0,
+        participants: isGroup ? (r.bettorsFor ?? 0) : undefined,
     };
 }
 

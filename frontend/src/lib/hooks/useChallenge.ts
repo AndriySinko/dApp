@@ -59,8 +59,12 @@ export function useChallenge(
     { address, abi: INDIVIDUAL_CHALLENGE_ABI, functionName: "pendingWithdrawals",  args: [userAddress] } as const,
   ] : [];
 
+  const userGroupCalls = address && userAddress && type !== "INDIVIDUAL" ? [
+    { address, abi, functionName: "pendingWithdrawals", args: [userAddress] } as const,
+  ] : [];
+
   const { data, isLoading, refetch } = useReadContracts({
-    contracts: [...baseCalls, ...individualCalls, ...userCalls, ...userIndividualCalls],
+    contracts: [...baseCalls, ...individualCalls, ...userCalls, ...userIndividualCalls, ...userGroupCalls],
     query: { enabled: !!address, refetchInterval: 4000 },
   });
 
@@ -89,7 +93,9 @@ export function useChallenge(
     const userStake      = userCalls.length > 0 ? data[7]?.result  as bigint  | undefined : undefined;
     const verdictDone    = userCalls.length > 0 ? data[8]?.result  as boolean | undefined : undefined;
     const boundAccount   = userCalls.length > 0 ? data[9]?.result  as string  | undefined : undefined;
-    return { ...base, isRegistered, userStake, verdictDone, boundAccount, isLoading, refetch };
+    const groupOffset    = 6 + userCalls.length;
+    const userPending    = userGroupCalls.length > 0 ? data[groupOffset]?.result as bigint | undefined : undefined;
+    return { ...base, isRegistered, userStake, verdictDone, boundAccount, userPending, isLoading, refetch };
   }
 
   const [forPoolRaw, againstPoolRaw, bettorsForRaw, bettorsAgainstRaw] = data.slice(6);
