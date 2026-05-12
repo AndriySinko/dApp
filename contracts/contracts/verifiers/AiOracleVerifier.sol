@@ -24,7 +24,7 @@ interface IAiChallenge {
 contract AiOracleVerifier is IVerifier, FunctionsClient, Ownable {
     using FunctionsRequest for FunctionsRequest.Request;
 
-    uint32 public callbackGasLimit = 500_000;
+    uint32 public callbackGasLimit = 200_000;
 
     function setCallbackGasLimit(uint32 limit) external onlyOwner {
         callbackGasLimit = limit;

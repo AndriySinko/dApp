@@ -17,7 +17,7 @@ contract ApiOracleVerifier is IVerifier, FunctionsClient, Ownable {
     using FunctionsRequest for FunctionsRequest.Request;
 
     // Gas budget given to fulfillRequest when the DON calls back.
-    uint32 public callbackGasLimit = 500_000;
+    uint32 public callbackGasLimit = 200_000;
 
     function setCallbackGasLimit(uint32 limit) external onlyOwner {
         callbackGasLimit = limit;
@@ -111,11 +111,16 @@ contract ApiOracleVerifier is IVerifier, FunctionsClient, Ownable {
         require(!_pendingVerifications[challengeAddress][participant],   "Verification already pending");
         require(bytes(jsSource).length > 0,                            "JS source not configured");
 
+        // Set state before dispatch so retryVerification works even if the
+        // Chainlink dispatch fails (e.g. subscription not funded / consumer not added).
         _pendingVerifications[challengeAddress][participant] = true;
         _storedParams[challengeAddress][participant]         = params;
 
-        bytes32 requestId = _dispatchRequest(challengeAddress, participant, params);
-        emit VerificationRequested(challengeAddress, participant, requestId);
+        try this._externalDispatch(challengeAddress, participant, params) returns (bytes32 requestId) {
+            emit VerificationRequested(challengeAddress, participant, requestId);
+        } catch (bytes memory err) {
+            emit VerificationErrored(challengeAddress, participant, bytes32(0), err);
+        }
     }
 
     // ── Owner actions ─────────────────────────────────────────────────────────
@@ -126,15 +131,31 @@ contract ApiOracleVerifier is IVerifier, FunctionsClient, Ownable {
         require(_pendingVerifications[challengeAddress][participant],            "No pending verification");
         require(_activeRequestId[challengeAddress][participant] == bytes32(0),  "Request still in flight");
 
-        bytes32 requestId = _dispatchRequest(
+        try this._externalDispatch(
             challengeAddress,
             participant,
             _storedParams[challengeAddress][participant]
-        );
-        emit VerificationRetried(challengeAddress, participant, requestId);
+        ) returns (bytes32 requestId) {
+            emit VerificationRetried(challengeAddress, participant, requestId);
+        } catch (bytes memory err) {
+            emit VerificationErrored(challengeAddress, participant, bytes32(0), err);
+        }
     }
 
     // ── Internal helpers ──────────────────────────────────────────────────────
+
+    // External wrapper around _dispatchRequest so requestVerification and
+    // retryVerification can use try/catch to survive a reverting _sendRequest
+    // (e.g. subscription not funded, consumer not registered).
+    // Only callable by this contract itself or the owner.
+    function _externalDispatch(
+        address challengeAddress,
+        address participant,
+        bytes calldata params
+    ) external returns (bytes32 requestId) {
+        require(msg.sender == address(this) || msg.sender == owner(), "Unauthorized");
+        return _dispatchRequest(challengeAddress, participant, params);
+    }
 
     function _dispatchRequest(
         address challengeAddress,

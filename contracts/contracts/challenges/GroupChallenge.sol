@@ -51,11 +51,11 @@ contract GroupChallenge is BaseChallenge, ReentrancyGuard {
         uint256 pLen = _participants.length;
         for (uint256 i = 0; i < pLen; i++) {
             address p = _participants[i];
-            IVerifier(verifierAddress).requestVerification(
+            try IVerifier(verifierAddress).requestVerification(
                 address(this),
                 p,
                 abi.encode(criteria, boundAccount[p])
-            );
+            ) {} catch {}
         }
     }
 

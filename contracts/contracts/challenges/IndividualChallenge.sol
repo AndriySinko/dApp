@@ -77,11 +77,11 @@ contract IndividualChallenge is BaseChallenge, ReentrancyGuard {
     }
 
     function _onVerifyPending() internal override {
-        IVerifier(verifierAddress).requestVerification(
+        try IVerifier(verifierAddress).requestVerification(
             address(this),
             _creator,
             abi.encode(criteria, boundAccount[_creator])
-        );
+        ) {} catch {}
     }
 
     function placeBet(bool side) external payable {
