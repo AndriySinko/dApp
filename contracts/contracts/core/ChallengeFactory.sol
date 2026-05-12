@@ -192,7 +192,7 @@ contract ChallengeFactory {
                 name:           title,
                 encryptedEmail: bytes(""),
                 upkeepContract: challengeAddress,
-                gasLimit:       500_000,
+                gasLimit:       3_000_000,
                 adminAddress:   msg.sender,
                 triggerType:    0,
                 checkData:      bytes(""),

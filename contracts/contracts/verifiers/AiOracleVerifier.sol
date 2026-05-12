@@ -24,7 +24,7 @@ interface IAiChallenge {
 contract AiOracleVerifier is IVerifier, FunctionsClient, Ownable {
     using FunctionsRequest for FunctionsRequest.Request;
 
-    uint32 public callbackGasLimit = 200_000;
+    uint32 public callbackGasLimit = 1_000_000;
 
     function setCallbackGasLimit(uint32 limit) external onlyOwner {
         callbackGasLimit = limit;
@@ -144,6 +144,11 @@ contract AiOracleVerifier is IVerifier, FunctionsClient, Ownable {
     }
 
     // ── Owner actions ─────────────────────────────────────────────────────────
+
+    // Clears a stuck in-flight request (e.g. callback OOG).
+    function forceResetActiveRequest(address challengeAddress, address participant) external onlyOwner {
+        _activeRequestId[challengeAddress][participant] = bytes32(0);
+    }
 
     // Re-issues the Chainlink request after a DON error. Blocked while a request is still in flight.
     function retryVerification(address challengeAddress, address participant) external onlyOwner {

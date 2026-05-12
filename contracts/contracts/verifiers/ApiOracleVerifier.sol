@@ -17,7 +17,7 @@ contract ApiOracleVerifier is IVerifier, FunctionsClient, Ownable {
     using FunctionsRequest for FunctionsRequest.Request;
 
     // Gas budget given to fulfillRequest when the DON calls back.
-    uint32 public callbackGasLimit = 200_000;
+    uint32 public callbackGasLimit = 1_000_000;
 
     function setCallbackGasLimit(uint32 limit) external onlyOwner {
         callbackGasLimit = limit;
@@ -124,6 +124,12 @@ contract ApiOracleVerifier is IVerifier, FunctionsClient, Ownable {
     }
 
     // ── Owner actions ─────────────────────────────────────────────────────────
+
+    // Clears a stuck in-flight request (e.g. callback OOG). Use when the Chainlink
+    // panel shows the request as fulfilled but _fulfillRequest never ran.
+    function forceResetActiveRequest(address challengeAddress, address participant) external onlyOwner {
+        _activeRequestId[challengeAddress][participant] = bytes32(0);
+    }
 
     // Re-issues the Chainlink request for a (challenge, participant) pair whose
     // previous attempt returned an error. Blocked while a request is still in flight.
