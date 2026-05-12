@@ -1,17 +1,16 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
-import { useAccount, useReadContract } from "wagmi";
+import { useAccount, useReadContract, useWriteContract } from "wagmi";
 import { formatEther } from "viem";
 import { Donut, Sparkline } from "@/components/ui";
 import { BetPanel } from "@/components/BetPanel";
 import { StateIndicator } from "@/components/StateIndicator";
 import { WithdrawCard, BindAccountCard, SettleFallback } from "@/components/ActionCards";
 import { VERIFIER_ICON, VERIFIER_LABEL, TYPE_LABEL, pct, formatEth, timeLeft, multiplier } from "@/lib/utils";
-import { ADDRESSES, FACTORY_ABI } from "@/lib/contracts";
-import { CHALLENGE_TYPE_FROM_NUM, VERIFIER_TYPE_FROM_NUM, type Challenge, type ChallengeType, type ChallengeState, type VerifierType } from "@/lib/types";
+import { type Challenge, type ChallengeType, type ChallengeState, type VerifierType } from "@/lib/types";
 import { useChallenge } from "@/lib/hooks/useChallenge";
 
 type ChainData = {
@@ -33,14 +32,6 @@ type ChainData = {
 type Tab = "Market" | "Details" | "Verifier" | "On-chain";
 const TABS: Tab[] = ["Market", "Details", "Verifier", "On-chain"];
 
-type RawChallengeInfo = {
-  id: bigint;
-  challengeType: number;
-  verifier: number;
-  creator: `0x${string}`;
-  title: string;
-};
-
 export default function ChallengePage() {
   const { id } = useParams<{ id: string }>();
   const { address: userAddress } = useAccount();
@@ -48,19 +39,17 @@ export default function ChallengePage() {
 
   const challengeAddress = id as `0x${string}`;
 
-  const { data: infoRaw } = useReadContract({
-    address: ADDRESSES.factory,
-    abi: FACTORY_ABI,
-    functionName: "getChallengeInfo",
-    args: [challengeAddress],
-    query: { enabled: !!challengeAddress },
-  });
+  // All metadata comes from Subsquid — no factory call needed
+  const [challengeType, setChallengeType] = useState<ChallengeType>("INDIVIDUAL");
+  const [verifierType,  setVerifierType]  = useState<VerifierType>("ON_CHAIN");
+  const [verifierKnown, setVerifierKnown] = useState(false);
+  const [title,         setTitle]         = useState("Loading…");
+  const [creatorAddress, setCreatorAddress] = useState<string>(challengeAddress);
 
-  const info = infoRaw as RawChallengeInfo | undefined;
-  const challengeType: ChallengeType = info ? CHALLENGE_TYPE_FROM_NUM[info.challengeType] : "INDIVIDUAL";
-  const verifierType: VerifierType   = info ? VERIFIER_TYPE_FROM_NUM[info.verifier]       : "ON_CHAIN";
-  const creatorAddress                = info?.creator ?? challengeAddress;
-  const title                         = info?.title   ?? "Loading…";
+  // Criteria + verifier hint
+  const [criteriaDisplay, setCriteriaDisplay] = useState<string>("");
+  const [verifierHint, setVerifierHint] = useState<"github"|"strava"|"generic">("generic");
+  const [rawCriteriaStr, setRawCriteriaStr] = useState<string>("");
 
   const chainData = useChallenge(challengeAddress, challengeType, userAddress as `0x${string}` | undefined) as ChainData;
 
@@ -82,10 +71,22 @@ export default function ChallengePage() {
   const allVerdictsIn = verdictsData !== undefined && verdictsExpected !== undefined && (verdictsData as bigint) >= (verdictsExpected as bigint) && (verdictsExpected as bigint) > BigInt(0);
 
   const isCreator = userAddress && chainData.creator && userAddress.toLowerCase() === chainData.creator.toLowerCase();
-  const showBindAccount = verifierType === "API_ORACLE" && chainData.state === "JOIN_OPEN" && chainData.isRegistered &&
-    (challengeType !== "INDIVIDUAL" || isCreator);
+  // Show bind card for any API Oracle challenge in JoinOpen — registered or not
+  // (unregistered users see it as a prompt to join+bind; submit disabled until registered)
+  const showBindAccount = verifierKnown && verifierType === "API_ORACLE" && chainData.state === "JOIN_OPEN";
   const showSettle = chainData.state === "VERIFY_PENDING" && allVerdictsIn;
   const showWithdraw = chainData.state === "SETTLED" && chainData.userPending !== undefined && chainData.userPending > BigInt(0);
+
+  // Advance state button — when deadline passed but Chainlink hasn't fired yet
+  const now = Math.floor(Date.now() / 1000);
+  const joinDeadlinePassed      = chainData.joinDeadline      && now >= Number(chainData.joinDeadline);
+  const challengeDeadlinePassed = chainData.challengeDeadline && now >= Number(chainData.challengeDeadline);
+  const canAdvanceState = (
+    (chainData.state === "JOIN_OPEN"  && joinDeadlinePassed) ||
+    (chainData.state === "ACTIVE"     && challengeDeadlinePassed)
+  );
+  const PERF_ABI = [{ type: "function", name: "performUpkeep", inputs: [{ type: "bytes" }], outputs: [], stateMutability: "nonpayable" }] as const;
+  const { writeContract: performUpkeep, isPending: isAdvancing } = useWriteContract();
 
   const forPool    = chainData.forPool     ? parseFloat(formatEther(chainData.forPool))     : 0;
   const againstPool = chainData.againstPool ? parseFloat(formatEther(chainData.againstPool)) : 0;
@@ -113,6 +114,47 @@ export default function ChallengePage() {
     participants:     chainData.participantCount,
   };
 
+  // Fix 1: fetch criteria from Subsquid (contract has no external getter)
+  useEffect(() => {
+    if (!challengeAddress) return;
+    const SQUID = process.env.NEXT_PUBLIC_SQUID_URL;
+    if (!SQUID) return;
+    fetch(SQUID, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        query: `query { challengeById(id: "${challengeAddress.toLowerCase()}") { criteria verifier type title creator } }`,
+      }),
+    })
+      .then(r => r.json())
+      .then(data => {
+        const c = data?.data?.challengeById;
+        if (!c) return;
+        if (c.verifier) { setVerifierType(c.verifier as VerifierType); setVerifierKnown(true); }
+        if (c.type)     setChallengeType(c.type as ChallengeType);
+        if (c.title)    setTitle(c.title);
+        if (c.creator)  setCreatorAddress(c.creator);
+        const raw: string = c.criteria ?? "";
+        if (!raw) return;
+        setRawCriteriaStr(raw);
+        if (raw.startsWith("ipfs:")) {
+          fetch(`https://ipfs.io/ipfs/${raw.slice(5).trim()}`)
+            .then(r => r.json())
+            .then(json => {
+              setCriteriaDisplay(json.criteria || json.prompt || raw);
+              if (json.sources?.[0]?.url?.includes("github")) setVerifierHint("github");
+              else if (json.sources?.[0]?.url?.includes("strava")) setVerifierHint("strava");
+            })
+            .catch(() => setCriteriaDisplay(raw));
+        } else {
+          if (raw.startsWith("github:")) setVerifierHint("github");
+          else if (raw.startsWith("strava:")) setVerifierHint("strava");
+          setCriteriaDisplay(raw);
+        }
+      })
+      .catch(() => {});
+  }, [challengeAddress]);
+
   return (
     <div className="container-wide fade-in" style={{ paddingTop: 32, paddingBottom: 80 }}>
       <div className="row gap-2 muted" style={{ fontSize: 12, marginBottom: 24, fontFamily: "var(--f-mono)" }}>
@@ -135,6 +177,17 @@ export default function ChallengePage() {
           <h1 className="serif" style={{ fontSize: 52, fontWeight: 400, lineHeight: 1.05, letterSpacing: "-0.02em", marginBottom: 16 }}>
             {challenge.title}
           </h1>
+          {canAdvanceState && (
+            <div style={{ padding: "10px 14px", borderRadius: "var(--r)", border: "1px dashed var(--acc)", background: "var(--acc-bg)", display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
+              <span className="muted" style={{ fontSize: 12.5 }}>
+                {chainData.state === "JOIN_OPEN" ? "Join window closed." : "Challenge ended."} Chainlink automation pending.
+              </span>
+              <button className="btn primary sm" disabled={isAdvancing}
+                onClick={() => performUpkeep({ address: challengeAddress, abi: PERF_ABI, functionName: "performUpkeep", args: ["0x"] })}>
+                {isAdvancing ? <><span className="spinner-dot" />Advancing…</> : "Advance state →"}
+              </button>
+            </div>
+          )}
           {showSettle && (
             <div style={{ marginBottom: 16 }}>
               <SettleFallback challengeAddress={challengeAddress} />
@@ -157,37 +210,70 @@ export default function ChallengePage() {
 
       <div style={{ display: "grid", gridTemplateColumns: "1fr 380px", gap: 24 }}>
         <div className="col gap-4">
-          <div className="card" style={{ padding: 28 }}>
-            <div className="row gap-6" style={{ alignItems: "center", marginBottom: 24 }}>
-              <Donut pct={forP} color="var(--win)" size={120} stroke={12} />
-              <div className="col gap-2 flex-1">
-                <div className="eyebrow">Implied probability of success</div>
-                <div style={{ display: "flex", alignItems: "baseline", gap: 12 }}>
-                  <span className="serif" style={{ fontSize: 80, lineHeight: 1, color: "var(--win)" }}>{forP}%</span>
-                  <span className="muted">FOR</span>
+          {challengeType === "INDIVIDUAL" ? (
+            <div className="card" style={{ padding: 28 }}>
+              <div className="row gap-6" style={{ alignItems: "center", marginBottom: 24 }}>
+                <Donut pct={forP} color="var(--win)" size={120} stroke={12} />
+                <div className="col gap-2 flex-1">
+                  <div className="eyebrow">Implied probability of success</div>
+                  <div style={{ display: "flex", alignItems: "baseline", gap: 12 }}>
+                    <span className="serif" style={{ fontSize: 80, lineHeight: 1, color: "var(--win)" }}>{forP}%</span>
+                    <span className="muted">FOR</span>
+                  </div>
+                  <div className="muted" style={{ fontSize: 13 }}>
+                    {challenge.bettorsFor ?? 0} bettors backing · {challenge.bettorsAgainst ?? 0} fading
+                  </div>
                 </div>
-                <div className="muted" style={{ fontSize: 13 }}>
-                  {challenge.bettorsFor ?? 0} bettors backing · {challenge.bettorsAgainst ?? 0} fading
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 1, background: "var(--line-soft)", border: "1px solid var(--line-soft)", borderRadius: "var(--r)", overflow: "hidden", minWidth: 280 }}>
+                  <div style={{ padding: 14, background: "var(--bg)" }}>
+                    <div className="eyebrow" style={{ color: "var(--win)" }}>FOR</div>
+                    <div className="num-lg" style={{ marginTop: 4 }}>{formatEth(forPool)}</div>
+                    <div className="dim" style={{ fontSize: 11, marginTop: 2 }}>{multiplier(forPool, total)} payout</div>
+                  </div>
+                  <div style={{ padding: 14, background: "var(--bg)" }}>
+                    <div className="eyebrow" style={{ color: "var(--loss)" }}>AGAINST</div>
+                    <div className="num-lg" style={{ marginTop: 4 }}>{formatEth(againstPool)}</div>
+                    <div className="dim" style={{ fontSize: 11, marginTop: 2 }}>{multiplier(againstPool, total)} payout</div>
+                  </div>
                 </div>
               </div>
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 1, background: "var(--line-soft)", border: "1px solid var(--line-soft)", borderRadius: "var(--r)", overflow: "hidden", minWidth: 280 }}>
-                <div style={{ padding: 14, background: "var(--bg)" }}>
-                  <div className="eyebrow" style={{ color: "var(--win)" }}>FOR</div>
-                  <div className="num-lg" style={{ marginTop: 4 }}>{formatEth(forPool)}</div>
-                  <div className="dim" style={{ fontSize: 11, marginTop: 2 }}>{multiplier(forPool, total)} payout</div>
+              <div className="bar split">
+                <div className="for" style={{ width: `${forP}%` }} />
+                <div className="against" style={{ width: `${agP}%` }} />
+              </div>
+            </div>
+          ) : (
+            <div className="card" style={{ padding: 28 }}>
+              <div className="row gap-6" style={{ alignItems: "center" }}>
+                <div className="col gap-2 flex-1">
+                  <div className="eyebrow">Participants</div>
+                  <div style={{ display: "flex", alignItems: "baseline", gap: 12 }}>
+                    <span className="serif" style={{ fontSize: 80, lineHeight: 1, color: "var(--acc)" }}>
+                      {chainData.participantCount ?? 0}
+                    </span>
+                    <span className="muted">joined</span>
+                  </div>
+                  <div className="muted" style={{ fontSize: 13 }}>
+                    min buy-in · {chainData.isLoading ? "…" : formatEth(challenge.buyIn)} ETH each
+                  </div>
                 </div>
-                <div style={{ padding: 14, background: "var(--bg)" }}>
-                  <div className="eyebrow" style={{ color: "var(--loss)" }}>AGAINST</div>
-                  <div className="num-lg" style={{ marginTop: 4 }}>{formatEth(againstPool)}</div>
-                  <div className="dim" style={{ fontSize: 11, marginTop: 2 }}>{multiplier(againstPool, total)} payout</div>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 1, background: "var(--line-soft)", border: "1px solid var(--line-soft)", borderRadius: "var(--r)", overflow: "hidden", minWidth: 280 }}>
+                  <div style={{ padding: 14, background: "var(--bg)" }}>
+                    <div className="eyebrow">Total staked</div>
+                    <div className="num-lg" style={{ marginTop: 4 }}>
+                      {formatEth((chainData.participantCount ?? 0) * challenge.buyIn)}
+                    </div>
+                    <div className="dim" style={{ fontSize: 11, marginTop: 2 }}>min estimate</div>
+                  </div>
+                  <div style={{ padding: 14, background: "var(--bg)" }}>
+                    <div className="eyebrow">Payout if all pass</div>
+                    <div className="num-lg" style={{ marginTop: 4 }}>stake back</div>
+                    <div className="dim" style={{ fontSize: 11, marginTop: 2 }}>losers' pool → winners</div>
+                  </div>
                 </div>
               </div>
             </div>
-            <div className="bar split">
-              <div className="for" style={{ width: `${forP}%` }} />
-              <div className="against" style={{ width: `${agP}%` }} />
-            </div>
-          </div>
+          )}
 
           <div className="row gap-6" style={{ borderBottom: "1px solid var(--line-soft)" }}>
             {TABS.map(t => (
@@ -232,11 +318,11 @@ export default function ChallengePage() {
               <div className="col gap-4">
                 <div className="field">
                   <label>Description</label>
-                  <p style={{ fontSize: 14, lineHeight: 1.6, color: "var(--text-2)", marginTop: 4 }}>{challenge.description}</p>
+                  <p style={{ fontSize: 14, lineHeight: 1.6, color: "var(--text-2)", marginTop: 4 }}>{criteriaDisplay || challenge.criteria || "—"}</p>
                 </div>
                 <div className="divider" />
                 <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 20 }}>
-                  <div className="col gap-2"><div className="eyebrow">Buy-in</div><div className="num-lg">{formatEth(challenge.buyIn)}</div></div>
+                  <div className="col gap-2"><div className="eyebrow">Buy-in</div><div className="num-lg">{chainData.isLoading ? "…" : formatEth(challenge.buyIn)}</div></div>
                   <div className="col gap-2"><div className="eyebrow">Join deadline</div><div className="num" style={{ fontSize: 14 }}>{challenge.joinDeadline.toUTCString().slice(0, 22)}</div></div>
                   <div className="col gap-2"><div className="eyebrow">Challenge deadline</div><div className="num" style={{ fontSize: 14 }}>{challenge.challengeDeadline.toUTCString().slice(0, 22)}</div></div>
                   <div className="col gap-2"><div className="eyebrow">Type</div><span className="tag">{TYPE_LABEL[challenge.type]}</span></div>
@@ -252,23 +338,43 @@ export default function ChallengePage() {
                 <span style={{ color: "var(--acc)", fontSize: 28, fontFamily: "var(--f-mono)" }}>{VERIFIER_ICON[challenge.verifier]}</span>
                 <div className="h-2 serif" style={{ fontSize: 24 }}>{VERIFIER_LABEL[challenge.verifier]}</div>
               </div>
+
+              {/* Criteria description */}
+              {criteriaDisplay && (
+                <div className="card" style={{ padding: 16, marginBottom: 20, background: "var(--acc-bg)", borderColor: "var(--acc)" }}>
+                  <div className="eyebrow" style={{ marginBottom: 6 }}>Success condition</div>
+                  <p style={{ fontSize: 14, color: "var(--text-2)", lineHeight: 1.6, fontFamily: "var(--f-mono)", wordBreak: "break-all" }}>
+                    {criteriaDisplay}
+                  </p>
+                </div>
+              )}
+
+              {/* How verification works */}
               <div className="col gap-3" style={{ fontFamily: "var(--f-mono)", fontSize: 12, color: "var(--text-3)", lineHeight: 1.8 }}>
                 {challenge.verifier === "ON_CHAIN" && <>
-                  <div><span className="dim">→</span> read participant.balance at deadline</div>
-                  <div><span className="dim">→</span> require balance ≥ {formatEth(challenge.buyIn)}</div>
-                  <div><span style={{ color: "var(--acc)" }}>↳</span> sync receiveVerdict(pass/fail)</div>
+                  <div><span className="dim">→</span> reads on-chain state at challenge deadline (synchronous)</div>
+                  {rawCriteriaStr.startsWith("eth:") && <div><span className="dim">→</span> checks native ETH balance of participant</div>}
+                  {rawCriteriaStr.startsWith("erc20:") && <div><span className="dim">→</span> calls balanceOf(participant) on ERC-20 contract</div>}
+                  {rawCriteriaStr.startsWith("nft:") && <div><span className="dim">→</span> calls balanceOf(participant) on ERC-721 contract</div>}
+                  {rawCriteriaStr.startsWith("call:") && <div><span className="dim">→</span> staticcall to contract — any view function</div>}
+                  {rawCriteriaStr.startsWith("and:") && <div><span className="dim">→</span> all sub-conditions must pass</div>}
+                  {rawCriteriaStr.startsWith("or:") && <div><span className="dim">→</span> any sub-condition must pass</div>}
+                  <div><span style={{ color: "var(--acc)" }}>↳</span> verdict delivered in same transaction</div>
                 </>}
                 {challenge.verifier === "API_ORACLE" && <>
-                  <div><span className="dim">→</span> Chainlink Functions _sendRequest(jsSrc, args)</div>
-                  <div><span className="dim">→</span> Functions.makeHttpRequest(apiEndpoint)</div>
-                  <div><span className="dim">→</span> fulfillRequest(reqId, response)</div>
-                  <div><span style={{ color: "var(--acc)" }}>↳</span> async receiveVerdict(pass/fail)</div>
+                  <div><span className="dim">→</span> at deadline, Chainlink Functions calls external API</div>
+                  {verifierHint === "github" && <div><span className="dim">→</span> queries GitHub API with participant's username</div>}
+                  {verifierHint === "strava" && <div><span className="dim">→</span> queries Strava API with participant's access token</div>}
+                  {rawCriteriaStr.startsWith("ipfs:") && <div><span className="dim">→</span> loads expression engine config from IPFS</div>}
+                  <div><span className="dim">→</span> evaluates condition against API response</div>
+                  <div><span style={{ color: "var(--acc)" }}>↳</span> verdict delivered async via Chainlink DON callback</div>
                 </>}
                 {challenge.verifier === "AI_ORACLE" && <>
-                  <div><span className="dim">→</span> participant.submitEvidence(ipfsCid, dailyNonce)</div>
-                  <div><span className="dim">→</span> Gemini Vision: criteria + nonce check per photo</div>
-                  <div><span className="dim">→</span> all_days_passed ? 1 : 0</div>
-                  <div><span style={{ color: "var(--acc)" }}>↳</span> async receiveVerdict(pass/fail)</div>
+                  <div><span className="dim">→</span> participant submits a photo with daily nonce each day</div>
+                  <div><span className="dim">→</span> photos stored on IPFS</div>
+                  <div><span className="dim">→</span> at deadline, Chainlink Functions sends each photo to Gemini Vision</div>
+                  <div><span className="dim">→</span> Gemini checks: {criteriaDisplay ? `"${criteriaDisplay.slice(0, 80)}${criteriaDisplay.length > 80 ? "…" : ""}"` : "criteria + nonce visible"}</div>
+                  <div><span style={{ color: "var(--acc)" }}>↳</span> verdict delivered async via Chainlink DON callback</div>
                 </>}
               </div>
             </div>
@@ -304,7 +410,9 @@ export default function ChallengePage() {
             <BindAccountCard
               challengeAddress={challengeAddress}
               challengeType={challengeType}
-              verifierHint="generic"
+              verifierHint={verifierHint}
+              isRegistered={chainData.isRegistered}
+              criteria={rawCriteriaStr}
             />
           )}
           <BetPanel challenge={challenge} />

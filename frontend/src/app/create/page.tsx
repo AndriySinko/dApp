@@ -56,7 +56,7 @@ const STEPS = ["Type", "Verification", "Stakes & deadlines", "Review & deploy"];
 
 export default function CreatePage() {
   const { isConnected } = useAccount();
-  const { deploy, step: txStep, isPending, isSuccess, hasLinkApproval } = useCreateChallenge();
+  const { deploy, step: txStep, isPending, isSuccess, isError, error, reset: resetTx, hasLinkApproval } = useCreateChallenge();
 
   const [step,         setStep]        = useState<Step>(1);
   const [type,         setType]        = useState<ChallengeType>("INDIVIDUAL");
@@ -84,6 +84,8 @@ export default function CreatePage() {
 
   const deployLabel = !isConnected
     ? "Connect wallet to deploy"
+    : isError
+    ? "✗ Failed — retry"
     : !hasLinkApproval
     ? txStep === "approving" ? "Approving LINK…" : "Step 1: Approve 2 LINK →"
     : txStep === "creating" || txStep === "approved" ? "Deploying…"
@@ -250,13 +252,19 @@ export default function CreatePage() {
             <TxButton
               label={deployLabel}
               successLabel="Challenge deployed!"
-              className="btn primary lg"
+              className={`btn primary lg${isError ? " ghost" : ""}`}
               style={{ justifyContent: "center" }}
-              onSubmit={isConnected ? handleDeploy : undefined}
+              onSubmit={isConnected ? (isError ? resetTx : handleDeploy) : undefined}
               isPending={isPending}
               isSuccess={isSuccess}
+              isError={isError}
               disabled={!isConnected || !title || !criteria}
             />
+            {isError && error && (
+              <div style={{ fontSize: 12, color: "var(--loss)", marginTop: 8, fontFamily: "var(--f-mono)" }}>
+                {(error as Error).message?.slice(0, 120) ?? "Transaction failed"}
+              </div>
+            )}
             <div className="muted" style={{ fontSize: 12, marginTop: 12 }}>
               Deploying calls <span className="chip">factory.createChallenge()</span> — gas est. ~0.006 ETH.
             </div>

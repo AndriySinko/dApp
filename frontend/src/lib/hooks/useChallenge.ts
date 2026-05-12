@@ -60,7 +60,7 @@ export function useChallenge(
 
   const { data, isLoading, refetch } = useReadContracts({
     contracts: [...baseCalls, ...individualCalls, ...userCalls, ...userIndividualCalls],
-    query: { enabled: !!address },
+    query: { enabled: !!address, refetchInterval: 4000 },
   });
 
   if (!data || !address) {

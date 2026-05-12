@@ -82,15 +82,33 @@ const BIND_ABI = [
   { type: "function", name: "bindAccount", inputs: [{ name: "serviceAccountId", type: "string" }], outputs: [], stateMutability: "nonpayable" },
 ] as const;
 
-export function BindAccountCard({ challengeAddress, verifierHint, alreadyBound }: BindAccountCardProps) {
+function detectService(criteria: string): { label: string; placeholder: string } {
+  if (criteria.startsWith("github:"))     return { label: "GitHub",     placeholder: "GitHub username (e.g. torvalds)" };
+  if (criteria.startsWith("strava:"))     return { label: "Strava",     placeholder: "Strava access token" };
+  if (criteria.startsWith("chess:"))      return { label: "Chess.com",  placeholder: "Chess.com username (e.g. magnuscarlsen)" };
+  if (criteria.startsWith("lichess:"))    return { label: "Lichess",    placeholder: "Lichess username (e.g. DrNykterstein)" };
+  if (criteria.startsWith("leetcode:"))   return { label: "LeetCode",   placeholder: "LeetCode username" };
+  if (criteria.startsWith("duolingo:"))   return { label: "Duolingo",   placeholder: "Duolingo username" };
+  if (criteria.startsWith("codeforces:")) return { label: "Codeforces", placeholder: "Codeforces handle (e.g. tourist)" };
+  return { label: "Off-chain account", placeholder: "Your account ID" };
+}
+
+export function BindAccountCard({ challengeAddress, verifierHint, alreadyBound, isRegistered, criteria }: BindAccountCardProps & { isRegistered?: boolean; criteria?: string }) {
   const { writeContract, data: txHash, isPending } = useWriteContract();
   const { isSuccess } = useWaitForTransactionReceipt({ hash: txHash, query: { enabled: !!txHash } });
 
   const [val, setVal] = useState(alreadyBound ?? "");
   const isBound = !!(alreadyBound || isSuccess);
 
-  const placeholder = verifierHint === "strava" ? "Strava athlete ID" : verifierHint === "github" ? "GitHub username" : "Service account ID";
-  const label = verifierHint === "strava" ? "Strava" : verifierHint === "github" ? "GitHub" : "Off-chain account";
+  const detected = detectService(criteria ?? "");
+  const placeholder = detected.placeholder !== "Your account ID" ? detected.placeholder
+    : verifierHint === "strava" ? "Strava access token"
+    : verifierHint === "github" ? "GitHub username"
+    : "Your account ID";
+  const label = detected.label !== "Off-chain account" ? detected.label
+    : verifierHint === "strava" ? "Strava"
+    : verifierHint === "github" ? "GitHub"
+    : "Off-chain account";
 
   const bind = () => {
     if (!val.trim()) return;
@@ -121,9 +139,15 @@ export function BindAccountCard({ challengeAddress, verifierHint, alreadyBound }
           </p>
           <div className="row gap-2" style={{ alignItems: "stretch" }}>
             <input className="input" value={val} onChange={e => setVal(e.target.value)} placeholder={placeholder} disabled={isPending} style={{ flex: 1 }} />
-            <button className="btn primary sm" disabled={!val.trim() || isPending} onClick={bind}>
-              {isPending ? <><span className="spinner-dot" />Binding…</> : "Bind account"}
-            </button>
+            {isRegistered === false ? (
+              <div className="muted" style={{ fontSize: 12, padding: "8px 12px", border: "1px dashed var(--line)", borderRadius: "var(--r)", alignSelf: "center" }}>
+                ↓ Join using the panel below first
+              </div>
+            ) : (
+              <button className="btn primary sm" disabled={!val.trim() || isPending} onClick={bind}>
+                {isPending ? <><span className="spinner-dot" />Binding…</> : "Bind account"}
+              </button>
+            )}
           </div>
           <div className="dim mono" style={{ fontSize: 10, marginTop: 10 }}>↳ writes serviceAccountId to challenge contract</div>
         </>

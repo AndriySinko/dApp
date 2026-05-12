@@ -359,7 +359,7 @@ function ApiBuilder({ value, onChange }: { value: string; onChange: (s: string) 
         </p>
         {service !== "coingecko" && (
           <p className="muted" style={{ fontSize: 12, marginTop: 6 }}>
-            Participant binds their {svc.label} account via <code>bindAccount("{svc.accountHint}")</code>
+            Each participant will be asked to enter their <strong>{svc.label} {accountFieldLabel(service)}</strong> when joining.
           </p>
         )}
       </div>
@@ -481,6 +481,21 @@ function AiBuilder({ value, onChange }: { value: string; onChange: (s: string) =
       )}
     </div>
   );
+}
+
+// ── Account field labels ──────────────────────────────────────────────────────
+
+function accountFieldLabel(service: string): string {
+  switch (service) {
+    case "github":     return "username (e.g. torvalds)";
+    case "strava":     return "access token";
+    case "chess":      return "username (e.g. magnuscarlsen)";
+    case "lichess":    return "username (e.g. DrNykterstein)";
+    case "leetcode":   return "username";
+    case "duolingo":   return "username";
+    case "codeforces": return "handle (e.g. tourist)";
+    default:           return "account ID";
+  }
 }
 
 // ── URL/header builders for API services ─────────────────────────────────────

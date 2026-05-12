@@ -1,10 +1,12 @@
 "use client";
 
 import { useState } from "react";
-import { useAccount, useReadContract, useWriteContract, useWaitForTransactionReceipt } from "wagmi";
+import { useAccount, useReadContract, useWriteContract, useWaitForTransactionReceipt, useSendTransaction } from "wagmi";
+import { parseEther } from "viem";
 import { VERIFIER_ICON, VERIFIER_LABEL, timeLeft } from "@/lib/utils";
 import { useGovernance, useVote } from "@/lib/hooks/useGovernance";
 import { TickEpochBanner } from "@/components/ActionCards";
+import { CriteriaBuilder } from "@/components/CriteriaBuilder";
 import { ADDRESSES } from "@/lib/contracts";
 import { useEpochResults } from "@/lib/hooks/useEpochResults";
 import type { VerifierType } from "@/lib/types";
@@ -82,11 +84,10 @@ function ProposeForm({ onProposed }: { onProposed: () => void }) {
       </div>
       <div className="col gap-4">
         <div className="field"><label>Title</label><input className="input" value={title} onChange={e => setTitle(e.target.value)} placeholder="30-day fitness challenge" /></div>
-        <div className="field"><label>Description</label><textarea className="input" value={desc} onChange={e => setDesc(e.target.value)} placeholder="Describe what participants must do…" rows={3} /></div>
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr", gap: 16 }}>
           <div className="field">
             <label>Verifier</label>
-            <select className="input" value={verifier} onChange={e => setVerifier(e.target.value as VerifierType)}>
+            <select className="input" value={verifier} onChange={e => { setVerifier(e.target.value as VerifierType); setDesc(""); }}>
               {PROPOSE_VERIFIERS.map(v => <option key={v.value} value={v.value}>{v.label}</option>)}
             </select>
           </div>
@@ -94,7 +95,10 @@ function ProposeForm({ onProposed }: { onProposed: () => void }) {
           <div className="field"><label>Join window (days)</label><input className="input" type="number" value={joinDays} onChange={e => setJoinDays(e.target.value)} min="1" /></div>
           <div className="field"><label>Min stake (ETH)</label><input className="input" type="number" value={minStake} onChange={e => setMinStake(e.target.value)} step="0.01" /></div>
         </div>
-        <button className="btn primary" disabled={!title || !desc || isPending} onClick={submit} style={{ alignSelf: "flex-start" }}>
+        <div className="dots" />
+        <div className="eyebrow" style={{ marginBottom: 4 }}>Success criteria</div>
+        <CriteriaBuilder verifier={verifier} value={desc} onChange={setDesc} />
+        <button className="btn primary" disabled={!title || !desc || isPending} onClick={submit} style={{ alignSelf: "flex-start", marginTop: 8 }}>
           {isPending ? <><span className="spinner-dot" />Proposing…</> : "Submit proposal"}
         </button>
       </div>
@@ -124,6 +128,17 @@ export default function PublicPage() {
   const { data: ownerAddress } = useReadContract({ address: ADDRESSES.governance, abi: OWNER_ABI, functionName: "owner" });
   const isOwner = !!address && !!ownerAddress && address.toLowerCase() === (ownerAddress as string).toLowerCase();
 
+  // setPrizePerEpoch
+  const [prizeInput, setPrizeInput] = useState("");
+  const { writeContract: writePrize, data: prizeTxHash, isPending: isPrizePending } = useWriteContract();
+  const { isSuccess: isPrizeSet } = useWaitForTransactionReceipt({ hash: prizeTxHash, query: { enabled: !!prizeTxHash } });
+  const SET_PRIZE_ABI = [{ type: "function", name: "setPrizePerEpoch", inputs: [{ name: "amount", type: "uint256" }], outputs: [], stateMutability: "nonpayable" }] as const;
+
+  // Fund treasury
+  const [fundInput, setFundInput] = useState("");
+  const { sendTransaction: sendFund, data: fundTxHash, isPending: isFundPending } = useSendTransaction();
+  const { isSuccess: isFunded } = useWaitForTransactionReceipt({ hash: fundTxHash, query: { enabled: !!fundTxHash } });
+
   const handleVote = (proposalIndex: number) => {
     vote(proposalIndex);
     setTimeout(refetch, 3000);
@@ -138,6 +153,41 @@ export default function PublicPage() {
 
   return (
     <div className="container fade-in" style={{ paddingTop: 40, paddingBottom: 80 }}>
+      {isOwner && (
+        <div className="card" style={{ padding: 24, marginBottom: 24, borderColor: "var(--line-soft)" }}>
+          <div className="row" style={{ justifyContent: "space-between", marginBottom: 16 }}>
+            <div className="eyebrow">Admin settings</div>
+            <span className="tag">owner only</span>
+          </div>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 20 }}>
+            <div className="col gap-2">
+              <div className="field">
+                <label>Prize per round (ETH)</label>
+                <div className="row gap-2">
+                  <input className="input" type="number" value={prizeInput} onChange={e => setPrizeInput(e.target.value)} placeholder="1.0" step="0.1" style={{ flex: 1 }} />
+                  <button className="btn primary sm" disabled={!prizeInput || isPrizePending} onClick={() => writePrize({ address: ADDRESSES.governance!, abi: SET_PRIZE_ABI, functionName: "setPrizePerEpoch", args: [parseEther(prizeInput || "0")] })}>
+                    {isPrizePending ? <><span className="spinner-dot" />Setting…</> : isPrizeSet ? "✓ Set" : "Set →"}
+                  </button>
+                </div>
+                <span className="field-hint">Current: Ξ {(prizePerEpoch ?? 0).toFixed(2)} · ETH pulled from treasury when round deploys</span>
+              </div>
+            </div>
+            <div className="col gap-2">
+              <div className="field">
+                <label>Fund treasury (ETH)</label>
+                <div className="row gap-2">
+                  <input className="input" type="number" value={fundInput} onChange={e => setFundInput(e.target.value)} placeholder="1.0" step="0.1" style={{ flex: 1 }} />
+                  <button className="btn primary sm" disabled={!fundInput || isFundPending} onClick={() => sendFund({ to: ADDRESSES.treasury!, value: parseEther(fundInput || "0") })}>
+                    {isFundPending ? <><span className="spinner-dot" />Sending…</> : isFunded ? "✓ Funded" : "Fund →"}
+                  </button>
+                </div>
+                <span className="field-hint">Send ETH to treasury so it can fund public challenges</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {epochEnded && winningProposal && (
         <TickEpochBanner
           epochNumber={currentEpoch ?? 1}

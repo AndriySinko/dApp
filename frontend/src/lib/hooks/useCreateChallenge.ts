@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { useWriteContract, useWaitForTransactionReceipt, useReadContract, useAccount } from "wagmi";
 import { parseEther } from "viem";
 import { ADDRESSES, FACTORY_ABI, ERC20_ABI, LINK_UPKEEP_AMOUNT } from "@/lib/contracts";
@@ -37,9 +37,11 @@ export function useCreateChallenge() {
     writeContract: writeLinkApprove,
     data: approveTxHash,
     isPending: isApprovePending,
+    error: approveError,
+    reset: resetApprove,
   } = useWriteContract();
 
-  const { isSuccess: isApproveConfirmed } = useWaitForTransactionReceipt({
+  const { isSuccess: isApproveConfirmed, isError: isApproveFailed } = useWaitForTransactionReceipt({
     hash: approveTxHash,
     query: { enabled: !!approveTxHash },
   });
@@ -49,9 +51,11 @@ export function useCreateChallenge() {
     writeContract: writeCreate,
     data: createTxHash,
     isPending: isCreatePending,
+    error: createError,
+    reset: resetCreate,
   } = useWriteContract();
 
-  const { isSuccess: isCreateConfirmed } = useWaitForTransactionReceipt({
+  const { isSuccess: isCreateConfirmed, isError: isCreateFailed } = useWaitForTransactionReceipt({
     hash: createTxHash,
     query: { enabled: !!createTxHash },
   });
@@ -96,21 +100,39 @@ export function useCreateChallenge() {
     }
   }, [_create, linkAllowance, writeLinkApprove]);
 
-  // When approve tx confirms, proceed to create
-  if (isApproveConfirmed && step === "approving" && pendingParams) {
-    const params = pendingParams;
-    setPendingParams(null);
-    setStep("approved");
-    refetchAllowance().then(() => {
-      _create(params, parseEther(params.buyIn || "0"));
-    });
-  }
+  // All state transitions in useEffect to avoid setState-during-render
+  useEffect(() => {
+    if (isApproveConfirmed && step === "approving" && pendingParams) {
+      const params = pendingParams;
+      setPendingParams(null);
+      setStep("approved");
+      refetchAllowance().then(() => {
+        _create(params, parseEther(params.buyIn || "0"));
+      });
+    }
+  }, [isApproveConfirmed]); // eslint-disable-line
 
-  if (isCreateConfirmed && step === "creating") {
-    setStep("success");
-  }
+  useEffect(() => {
+    if ((isApproveFailed || approveError) && step === "approving") {
+      setStep("error");
+      setPendingParams(null);
+    }
+  }, [isApproveFailed, approveError]); // eslint-disable-line
+
+  useEffect(() => {
+    if ((isCreateFailed || createError) && step === "creating") {
+      setStep("error");
+    }
+  }, [isCreateFailed, createError]); // eslint-disable-line
+
+  useEffect(() => {
+    if (isCreateConfirmed && step === "creating") {
+      setStep("success");
+    }
+  }, [isCreateConfirmed]); // eslint-disable-line
 
   const hasLinkApproval = !!linkAllowance && (linkAllowance as bigint) >= LINK_UPKEEP_AMOUNT;
+  const error = approveError || createError;
 
   return {
     deploy,
@@ -122,6 +144,13 @@ export function useCreateChallenge() {
     isCreatePending,
     isPending: isApprovePending || isCreatePending,
     isSuccess: isCreateConfirmed,
-    reset: () => setStep("idle"),
+    isError: step === "error",
+    error,
+    reset: () => {
+      setStep("idle");
+      setPendingParams(null);
+      resetApprove();
+      resetCreate();
+    },
   };
 }

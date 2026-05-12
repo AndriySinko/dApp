@@ -3,7 +3,7 @@ export const ADDRESSES = {
   governance:  process.env.NEXT_PUBLIC_GOVERNANCE_ADDRESS  as `0x${string}`,
   treasury:    process.env.NEXT_PUBLIC_TREASURY_ADDRESS    as `0x${string}`,
   reputation:  process.env.NEXT_PUBLIC_REPUTATION_ADDRESS  as `0x${string}`,
-  linkToken:   process.env.NEXT_PUBLIC_LINK_TOKEN_ADDRESS  as `0x${string}`,
+  linkToken:   (process.env.NEXT_PUBLIC_LINK_TOKEN_ADDRESS ?? "0x779877A7B0D9E8603169DdbD7836e478b4624789") as `0x${string}`,
 };
 
 // 2 LINK required by factory for Chainlink Automation upkeep registration
@@ -215,7 +215,7 @@ export const PUBLIC_CHALLENGE_ABI = [
   },
   { type: "function", name: "withdraw",        inputs: [], outputs: [], stateMutability: "nonpayable" },
   { type: "function", name: "prizePool",       inputs: [], outputs: [{ type: "uint256" }], stateMutability: "view" },
-  { type: "function", name: "reclaimPrizePool", inputs: [], outputs: [], stateMutability: "nonpayable" },
+  { type: "function", name: "returnPrizePoolToTreasury", inputs: [], outputs: [], stateMutability: "nonpayable" },
 ] as const;
 
 export const REPUTATION_ABI = [
