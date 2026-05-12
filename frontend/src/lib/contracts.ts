@@ -107,6 +107,10 @@ const BASE_CHALLENGE_ABI = [
     inputs: [{ name: "serviceAccountId", type: "string" }], outputs: [], stateMutability: "nonpayable",
   },
   {
+    type: "function", name: "boundAccount",
+    inputs: [{ name: "participant", type: "address" }], outputs: [{ type: "string" }], stateMutability: "view",
+  },
+  {
     type: "function", name: "submitEvidence",
     inputs: [{ name: "ipfsCid", type: "string" }, { name: "nonce", type: "bytes32" }],
     outputs: [], stateMutability: "nonpayable",

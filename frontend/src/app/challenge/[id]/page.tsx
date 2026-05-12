@@ -73,7 +73,8 @@ export default function ChallengePage() {
   const isCreator = userAddress && chainData.creator && userAddress.toLowerCase() === chainData.creator.toLowerCase();
   // Show bind card for any API Oracle challenge in JoinOpen — registered or not
   // (unregistered users see it as a prompt to join+bind; submit disabled until registered)
-  const showBindAccount = verifierKnown && verifierType === "API_ORACLE" && chainData.state === "JOIN_OPEN";
+  // Only show standalone bind card for INDIVIDUAL — group/public handle binding inside the join panel
+  const showBindAccount = verifierKnown && verifierType === "API_ORACLE" && chainData.state === "JOIN_OPEN" && challengeType === "INDIVIDUAL";
   const showSettle = chainData.state === "VERIFY_PENDING" && allVerdictsIn;
   const showWithdraw = chainData.state === "SETTLED" && chainData.userPending !== undefined && chainData.userPending > BigInt(0);
 
@@ -228,7 +229,7 @@ export default function ChallengePage() {
                   <div style={{ padding: 14, background: "var(--bg)" }}>
                     <div className="eyebrow" style={{ color: "var(--win)" }}>FOR</div>
                     <div className="num-lg" style={{ marginTop: 4 }}>{formatEth(forPool)}</div>
-                    <div className="dim" style={{ fontSize: 11, marginTop: 2 }}>{multiplier(forPool, total)} payout</div>
+                    <div className="dim" style={{ fontSize: 11, marginTop: 2 }}>{againstPool === 0 ? "—" : multiplier(forPool, forPool + againstPool)} payout</div>
                   </div>
                   <div style={{ padding: 14, background: "var(--bg)" }}>
                     <div className="eyebrow" style={{ color: "var(--loss)" }}>AGAINST</div>
@@ -413,6 +414,7 @@ export default function ChallengePage() {
               verifierHint={verifierHint}
               isRegistered={chainData.isRegistered}
               criteria={rawCriteriaStr}
+              alreadyBound={chainData.boundAccount || undefined}
             />
           )}
           <BetPanel challenge={challenge} />

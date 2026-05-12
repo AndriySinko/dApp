@@ -51,6 +51,7 @@ export function useChallenge(
     { address, abi, functionName: "isRegistered",       args: [userAddress] } as const,
     { address, abi, functionName: "stakes",             args: [userAddress] } as const,
     { address, abi, functionName: "verdictReceived",    args: [userAddress] } as const,
+    { address, abi, functionName: "boundAccount",       args: [userAddress] } as const,
   ] : [];
 
   const userIndividualCalls = address && userAddress && type === "INDIVIDUAL" ? [
@@ -87,7 +88,8 @@ export function useChallenge(
     const isRegistered   = userCalls.length > 0 ? data[6]?.result  as boolean | undefined : undefined;
     const userStake      = userCalls.length > 0 ? data[7]?.result  as bigint  | undefined : undefined;
     const verdictDone    = userCalls.length > 0 ? data[8]?.result  as boolean | undefined : undefined;
-    return { ...base, isRegistered, userStake, verdictDone, isLoading, refetch };
+    const boundAccount   = userCalls.length > 0 ? data[9]?.result  as string  | undefined : undefined;
+    return { ...base, isRegistered, userStake, verdictDone, boundAccount, isLoading, refetch };
   }
 
   const [forPoolRaw, againstPoolRaw, bettorsForRaw, bettorsAgainstRaw] = data.slice(6);
@@ -95,6 +97,7 @@ export function useChallenge(
   const isRegistered  = userCalls.length > 0 ? data[baseOffset]?.result    as boolean | undefined : undefined;
   const userStake     = userCalls.length > 0 ? data[baseOffset+1]?.result  as bigint  | undefined : undefined;
   const verdictDone   = userCalls.length > 0 ? data[baseOffset+2]?.result  as boolean | undefined : undefined;
+  const boundAccount  = userCalls.length > 0 ? data[baseOffset+3]?.result  as string  | undefined : undefined;
   const userBetOffset = baseOffset + userCalls.length;
   const betRaw        = userIndividualCalls.length > 0 ? data[userBetOffset]?.result   as readonly [bigint, boolean] | undefined : undefined;
   const pending       = userIndividualCalls.length > 0 ? data[userBetOffset+1]?.result as bigint | undefined : undefined;
@@ -108,6 +111,7 @@ export function useChallenge(
     isRegistered,
     userStake,
     verdictDone,
+    boundAccount,
     userBet:    betRaw ? { amount: betRaw[0], side: betRaw[1] } : undefined,
     userPending: pending,
     isLoading,

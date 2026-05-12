@@ -1,12 +1,28 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { parseEther } from "viem";
+import { useAccount, useWriteContract, useWaitForTransactionReceipt } from "wagmi";
 import type { Challenge, BetSide } from "@/lib/types";
 import { pct, multiplier, formatEth } from "@/lib/utils";
 import { TxButton } from "./TxButton";
 import { usePlaceBet } from "@/lib/hooks/usePlaceBet";
 import { useJoinGroup } from "@/lib/hooks/useJoinGroup";
+
+const BIND_ABI = [
+  { type: "function", name: "bindAccount", inputs: [{ name: "serviceAccountId", type: "string" }], outputs: [], stateMutability: "nonpayable" },
+] as const;
+
+function detectServiceLabel(criteria: string): string {
+  if (criteria.startsWith("chess:"))      return "Chess.com username";
+  if (criteria.startsWith("lichess:"))    return "Lichess username";
+  if (criteria.startsWith("github:"))     return "GitHub username";
+  if (criteria.startsWith("strava:"))     return "Strava access token";
+  if (criteria.startsWith("leetcode:"))   return "LeetCode username";
+  if (criteria.startsWith("duolingo:"))   return "Duolingo username";
+  if (criteria.startsWith("codeforces:")) return "Codeforces handle";
+  return "Off-chain account ID";
+}
 
 const PRESETS = [0.05, 0.10, 0.25];
 
@@ -16,8 +32,9 @@ export function BetPanel({ challenge }: { challenge: Challenge }) {
 
   const forPool     = challenge.forPool    ?? 0;
   const againstPool = challenge.againstPool ?? 0;
-  const total = forPool + againstPool + challenge.buyIn;
-  const forMult  = multiplier(forPool,    total);
+  const total    = forPool + againstPool + challenge.buyIn;
+  // FOR bettors win from againstPool only; AGAINST bettors win forPool + buyIn
+  const forMult  = againstPool === 0 ? "—" : multiplier(forPool, forPool + againstPool);
   const agMult   = multiplier(againstPool, total);
   const forPct   = pct(forPool, againstPool);
   const agPct    = 100 - forPct;
@@ -29,6 +46,9 @@ export function BetPanel({ challenge }: { challenge: Challenge }) {
   const agUsed = againstPool / agCap;
 
   const challengeAddress = challenge.address as `0x${string}` | undefined;
+  const { address: userAddress } = useAccount();
+  const isCreator = !!userAddress && !!challenge.creatorAddress &&
+    userAddress.toLowerCase() === challenge.creatorAddress.toLowerCase();
   const { placeBet, isPending, isConfirming, isSuccess, error } = usePlaceBet(challengeAddress);
   const { join, isPending: joinPending, isConfirming: joinConfirming, isSuccess: joinSuccess, error: joinError } =
     useJoinGroup(challengeAddress, challenge.type);
@@ -47,6 +67,26 @@ export function BetPanel({ challenge }: { challenge: Challenge }) {
   const isGroupType = challenge.type === "GROUP" || challenge.type === "PUBLIC";
   const canAct = challenge.state === "JOIN_OPEN" && !!challengeAddress;
 
+  const isApiOracle = challenge.verifier === "API_ORACLE";
+  const [username, setUsername] = useState("");
+  const serviceLabel = detectServiceLabel(challenge.criteria ?? "");
+
+  // Step 2: bind after join succeeds
+  const { writeContract: writeBind, data: bindTxHash, isPending: bindPending, error: bindError } = useWriteContract();
+  const { isSuccess: bindSuccess, isLoading: bindConfirming } = useWaitForTransactionReceipt({
+    hash: bindTxHash,
+    query: { enabled: !!bindTxHash },
+  });
+
+  useEffect(() => {
+    if (joinSuccess && isApiOracle && username.trim() && challengeAddress) {
+      writeBind({ address: challengeAddress, abi: BIND_ABI, functionName: "bindAccount", args: [username.trim()] });
+    }
+  }, [joinSuccess]);
+
+  const joinDone = isApiOracle ? (joinSuccess && bindSuccess) : joinSuccess;
+  const joinInProgress = joinPending || joinConfirming || (joinSuccess && isApiOracle && (bindPending || bindConfirming));
+
   if (isGroupType) {
     return (
       <>
@@ -56,11 +96,24 @@ export function BetPanel({ challenge }: { challenge: Challenge }) {
             <label>Stake (ETH) — min {formatEth(challenge.buyIn)}</label>
             <input className="input" value={amount} onChange={e => setAmount(e.target.value)} placeholder="0.00" />
           </div>
-          <div className="row gap-2" style={{ marginBottom: 18 }}>
+          <div className="row gap-2" style={{ marginBottom: isApiOracle ? 14 : 18 }}>
             {PRESETS.map(p => (
               <button key={p} className="btn sm" onClick={() => setAmount(String(p))}>{p}</button>
             ))}
           </div>
+          {isApiOracle && (
+            <div className="field" style={{ marginBottom: 18 }}>
+              <label>{serviceLabel}</label>
+              <input
+                className="input"
+                value={username}
+                onChange={e => setUsername(e.target.value)}
+                placeholder={serviceLabel}
+                disabled={joinSuccess}
+              />
+              <div className="dim mono" style={{ fontSize: 10, marginTop: 4 }}>Required — used by the oracle to verify your result</div>
+            </div>
+          )}
           <div className="dots" style={{ marginBottom: 14 }} />
           <div className="col gap-2" style={{ fontSize: 12.5, marginBottom: 18 }}>
             <div className="row" style={{ justifyContent: "space-between" }}>
@@ -77,21 +130,33 @@ export function BetPanel({ challenge }: { challenge: Challenge }) {
                 <span style={{ color: "var(--win)" }}>flat prize / winners</span>
               </div>
             )}
+            {isApiOracle && joinSuccess && !bindSuccess && (
+              <div className="row" style={{ justifyContent: "space-between" }}>
+                <span className="muted">Step</span>
+                <span style={{ color: "var(--acc)" }}>
+                  {bindPending || bindConfirming ? "2/2 — binding account…" : "2/2 — confirm bind in wallet"}
+                </span>
+              </div>
+            )}
           </div>
-          {(joinError) && (
+          {(joinError || bindError) && (
             <div className="muted" style={{ fontSize: 11, color: "var(--loss)", marginBottom: 10, fontFamily: "var(--f-mono)" }}>
-              {(joinError as Error).message?.slice(0, 80)}
+              {((joinError || bindError) as Error).message?.slice(0, 80)}
             </div>
           )}
           <TxButton
-            label={canAct ? `Join — stake ${formatEth(stake)}` : challenge.state === "SETTLED" ? "Settled" : "Joining closed"}
-            successLabel="Joined!"
+            label={
+              !canAct ? (challenge.state === "SETTLED" ? "Settled" : "Joining closed")
+              : isApiOracle && !username.trim() ? `Enter your ${serviceLabel} first`
+              : `Join — stake ${formatEth(stake)}`
+            }
+            successLabel={isApiOracle ? "Joined & account bound!" : "Joined!"}
             className="btn primary lg"
             style={{ width: "100%", justifyContent: "center" }}
-            onSubmit={canAct ? handleJoin : undefined}
-            isPending={joinPending || joinConfirming}
-            isSuccess={joinSuccess}
-            disabled={!canAct}
+            onSubmit={canAct && (!isApiOracle || username.trim()) ? handleJoin : undefined}
+            isPending={joinInProgress}
+            isSuccess={joinDone}
+            disabled={!canAct || (isApiOracle && !username.trim())}
           />
         </div>
         <div className="card" style={{ padding: 20, fontFamily: "var(--f-mono)", fontSize: 11.5 }}>
@@ -111,14 +176,19 @@ export function BetPanel({ challenge }: { challenge: Challenge }) {
     );
   }
 
-  const canBet = canAct;
-  const betLabel = `Bet ${formatEth(stake)} ${side}`;
+  const canBet = canAct && !isCreator;
+  const betLabel = isCreator ? "Creator cannot bet" : `Bet ${formatEth(stake)} ${side}`;
 
   return (
     <>
       <div className="card" style={{ padding: 24 }}>
         <div className="eyebrow" style={{ marginBottom: 16 }}>Place a bet</div>
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 18 }}>
+        {isCreator && (
+          <div className="muted" style={{ fontSize: 12, marginBottom: 12, color: "var(--text-2)", fontFamily: "var(--f-mono)" }}>
+            You created this challenge — you cannot bet on it.
+          </div>
+        )}
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 18, opacity: isCreator ? 0.4 : 1, pointerEvents: isCreator ? "none" : undefined }}>
           <button
             className="btn"
             style={{
