@@ -3,7 +3,7 @@ pragma solidity ^0.8.24;
 
 import "../interfaces/IVerifier.sol";
 import "../interfaces/IChallenge.sol";
-import {FunctionsClient}  from "@chainlink/contracts/src/v0.8/functions/v1_0_0/FunctionsClient.sol";
+import {FunctionsClient}  from "@chainlink/contracts/src/v0.8/functions/v1_3_0/FunctionsClient.sol";
 import {FunctionsRequest} from "@chainlink/contracts/src/v0.8/functions/v1_0_0/libraries/FunctionsRequest.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 
@@ -246,7 +246,7 @@ contract AiOracleVerifier is IVerifier, FunctionsClient, Ownable {
 
     // Must not revert — any revert bubbles through handleOracleFulfillment and
     // permanently breaks the Chainlink callback for this requestId.
-    function fulfillRequest(
+    function _fulfillRequest(
         bytes32 requestId,
         bytes memory response,
         bytes memory err

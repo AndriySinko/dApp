@@ -57,7 +57,7 @@ abstract contract BaseChallenge is IChallenge, AutomationCompatibleInterface {
     mapping(address => Evidence[]) _evidence;
 
     // API oracle
-    mapping(address => string) boundAccount;
+    mapping(address => string) public boundAccount;
 
     // EVENTS
     event ParticipantRegistered(address indexed participant, uint256 stake, uint256 timestamp);
