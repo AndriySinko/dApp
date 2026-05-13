@@ -5,6 +5,7 @@ import { useAccount, useReadContract, useWriteContract, useWaitForTransactionRec
 import { parseEther } from "viem";
 import { VERIFIER_ICON, VERIFIER_LABEL, timeLeft } from "@/lib/utils";
 import { useGovernance, useVote } from "@/lib/hooks/useGovernance";
+import { useProtocolStats } from "@/lib/hooks/useProtocolStats";
 import { TickEpochBanner } from "@/components/ActionCards";
 import { CriteriaBuilder } from "@/components/CriteriaBuilder";
 import { ADDRESSES } from "@/lib/contracts";
@@ -124,6 +125,7 @@ export default function PublicPage() {
 
   const { vote, isPending: isVotePending, isSuccess: isVoteSuccess } = useVote();
   const { epochs: liveEpochs } = useEpochResults();
+  const { prizePool: treasuryBalance } = useProtocolStats();
 
   const { data: ownerAddress } = useReadContract({ address: ADDRESSES.governance, abi: OWNER_ABI, functionName: "owner" });
   const isOwner = !!address && !!ownerAddress && address.toLowerCase() === (ownerAddress as string).toLowerCase();
@@ -234,9 +236,9 @@ export default function PublicPage() {
           </div>
           <div style={{ paddingLeft: 28 }}>
             <div className="col gap-2">
-              <div className="eyebrow">Prize pool</div>
-              <div className="num-xl" style={{ color: "var(--acc)" }}>Ξ {(prizePerEpoch ?? 0).toFixed(2)}</div>
-              <div className="muted" style={{ fontSize: 12 }}>auto-funds winner</div>
+              <div className="eyebrow">Treasury prize pool</div>
+              <div className="num-xl" style={{ color: "var(--acc)" }}>Ξ {treasuryBalance !== null ? treasuryBalance.toFixed(3) : "…"}</div>
+              <div className="muted" style={{ fontSize: 12 }}>next round draws Ξ {(prizePerEpoch ?? 0).toFixed(2)}</div>
             </div>
           </div>
         </div>

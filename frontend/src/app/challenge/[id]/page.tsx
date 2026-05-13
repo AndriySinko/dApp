@@ -12,6 +12,7 @@ import { WithdrawCard, BindAccountCard, SettleFallback } from "@/components/Acti
 import { VERIFIER_ICON, VERIFIER_LABEL, TYPE_LABEL, pct, formatEth, timeLeft, multiplier } from "@/lib/utils";
 import { type Challenge, type ChallengeType, type ChallengeState, type VerifierType } from "@/lib/types";
 import { useChallenge } from "@/lib/hooks/useChallenge";
+import { useChallengeFeed } from "@/lib/hooks/useChallengeFeed";
 
 type ChainData = {
   state?: ChallengeState;
@@ -52,6 +53,7 @@ export default function ChallengePage() {
   const [rawCriteriaStr, setRawCriteriaStr] = useState<string>("");
 
   const chainData = useChallenge(challengeAddress, challengeType, userAddress as `0x${string}` | undefined) as ChainData;
+  const { activities: challengeActivities, isLoading: feedLoading } = useChallengeFeed(challengeAddress);
 
   const { data: verdictsData } = useReadContract({
     address: challengeAddress,
@@ -305,11 +307,47 @@ export default function ChallengePage() {
 
               <div className="card" style={{ padding: 0, overflow: "hidden" }}>
                 <div style={{ padding: "16px 20px", borderBottom: "1px solid var(--line-soft)" }}>
-                  <div className="eyebrow">Recent bets</div>
+                  <div className="eyebrow">Activity</div>
                 </div>
-                <div style={{ padding: "24px 20px", color: "var(--text-4)", fontSize: 13, fontFamily: "var(--f-mono)" }}>
-                  Bet history available after Subsquid indexer is deployed.
-                </div>
+                {feedLoading && (
+                  <div style={{ padding: "24px 20px", color: "var(--text-4)", fontSize: 13, fontFamily: "var(--f-mono)" }}>Loading…</div>
+                )}
+                {!feedLoading && challengeActivities.length === 0 && (
+                  <div style={{ padding: "24px 20px", color: "var(--text-4)", fontSize: 13, fontFamily: "var(--f-mono)" }}>No activity yet.</div>
+                )}
+                {!feedLoading && challengeActivities.length > 0 && (
+                  <table className="table">
+                    <thead>
+                      <tr>
+                        <th>event</th><th>address</th>
+                        <th style={{ textAlign: "right" }}>value</th>
+                        <th style={{ textAlign: "right" }}>time</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {challengeActivities.map(a => {
+                        const typeColor = a.activityType === "Won" || a.activityType === "BetFor" ? "var(--win)"
+                          : a.activityType === "Lost" || a.activityType === "BetAgainst" ? "var(--loss)"
+                          : a.activityType === "Created" ? "var(--acc)"
+                          : undefined;
+                        return (
+                          <tr key={a.id}>
+                            <td><span className="tag" style={typeColor ? { color: typeColor } : undefined}>{a.activityType}</span></td>
+                            <td><span className="mono dim" style={{ fontSize: 11 }}>{a.user.slice(0, 6)}…{a.user.slice(-4)}</span></td>
+                            <td style={{ textAlign: "right" }} className="num">
+                              {a.amount > 0 ? `Ξ ${a.amount.toFixed(4)}`
+                                : a.repDelta !== 0 ? <span style={{ color: a.repDelta > 0 ? "var(--win)" : "var(--loss)" }}>{a.repDelta > 0 ? "+" : ""}{a.repDelta} rep</span>
+                                : "—"}
+                            </td>
+                            <td style={{ textAlign: "right", fontSize: 11, fontFamily: "var(--f-mono)", color: "var(--text-3)" }}>
+                              {a.timestamp.toLocaleString()}
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                )}
               </div>
             </div>
           )}
@@ -382,19 +420,60 @@ export default function ChallengePage() {
           )}
 
           {tab === "On-chain" && (
-            <div className="card" style={{ padding: 24, color: "var(--text-4)", fontSize: 13, fontFamily: "var(--f-mono)" }}>
-              On-chain event history available after Subsquid indexer is deployed.
-              <div style={{ marginTop: 12 }}>
-                <a
-                  href={`https://sepolia.etherscan.io/address/${challengeAddress}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="chip"
-                  style={{ color: "var(--acc)" }}
-                >
-                  View on Etherscan ↗
+            <div className="card" style={{ padding: 0, overflow: "hidden" }}>
+              <div style={{ padding: "16px 20px", borderBottom: "1px solid var(--line-soft)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                <div className="eyebrow">All events</div>
+                <a href={`https://sepolia.etherscan.io/address/${challengeAddress}`} target="_blank" rel="noopener noreferrer" className="chip" style={{ color: "var(--acc)", fontSize: 11 }}>
+                  Etherscan ↗
                 </a>
               </div>
+              {feedLoading && (
+                <div style={{ padding: "24px 20px", color: "var(--text-4)", fontSize: 13, fontFamily: "var(--f-mono)" }}>Loading…</div>
+              )}
+              {!feedLoading && challengeActivities.length === 0 && (
+                <div style={{ padding: "24px 20px", color: "var(--text-4)", fontSize: 13, fontFamily: "var(--f-mono)" }}>No indexed events yet.</div>
+              )}
+              {!feedLoading && challengeActivities.length > 0 && (
+                <table className="table">
+                  <thead>
+                    <tr>
+                      <th>event</th><th>address</th>
+                      <th style={{ textAlign: "right" }}>value</th>
+                      <th style={{ textAlign: "right" }}>tx</th>
+                      <th style={{ textAlign: "right" }}>time</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {challengeActivities.map(a => {
+                      const typeColor = a.activityType === "Won" || a.activityType === "BetFor" ? "var(--win)"
+                        : a.activityType === "Lost" || a.activityType === "BetAgainst" ? "var(--loss)"
+                        : a.activityType === "Created" ? "var(--acc)"
+                        : undefined;
+                      return (
+                        <tr key={a.id}>
+                          <td><span className="tag" style={typeColor ? { color: typeColor } : undefined}>{a.activityType}</span></td>
+                          <td><span className="mono dim" style={{ fontSize: 11 }}>{a.user.slice(0, 6)}…{a.user.slice(-4)}</span></td>
+                          <td style={{ textAlign: "right" }} className="num">
+                            {a.amount > 0 ? `Ξ ${a.amount.toFixed(4)}`
+                              : a.repDelta !== 0 ? <span style={{ color: a.repDelta > 0 ? "var(--win)" : "var(--loss)" }}>{a.repDelta > 0 ? "+" : ""}{a.repDelta} rep</span>
+                              : "—"}
+                          </td>
+                          <td style={{ textAlign: "right" }}>
+                            {a.txHash ? (
+                              <a href={`https://sepolia.etherscan.io/tx/${a.txHash}`} target="_blank" rel="noopener noreferrer" className="chip" style={{ fontSize: 10, color: "var(--acc)" }}>
+                                {a.txHash.slice(0, 6)}… ↗
+                              </a>
+                            ) : <span className="dim" style={{ fontSize: 11 }}>—</span>}
+                          </td>
+                          <td style={{ textAlign: "right", fontSize: 11, fontFamily: "var(--f-mono)", color: "var(--text-3)" }}>
+                            {a.timestamp.toLocaleString()}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              )}
             </div>
           )}
         </div>

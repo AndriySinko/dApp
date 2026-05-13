@@ -38,7 +38,7 @@ export default function ProfilePage() {
 
   const { scoreNum } = useReputation(profileAddress);
   const { leaderboard } = useLeaderboard();
-  const { challenges: userChallenges, isLoading: challengesLoading } = useUserChallenges(profileAddress);
+  const { challenges: userChallenges, stats, isLoading: challengesLoading } = useUserChallenges(profileAddress);
 
   const isMe = mounted && connectedAddress?.toLowerCase() === profileAddress?.toLowerCase();
   const shortAddr = profileAddress
@@ -90,11 +90,11 @@ export default function ProfilePage() {
 
         <div style={{ display: "grid", gridTemplateColumns: "repeat(5, 1fr)", marginTop: 32, paddingTop: 28, borderTop: "1px solid var(--line-soft)" }}>
           {[
-            { label: "Won",          value: "—" },
-            { label: "Lost",         value: "—" },
-            { label: "Win rate",     value: "—" },
-            { label: "Total staked", value: "—" },
-            { label: "Net profit",   value: "—" },
+            { label: "Won",          value: challengesLoading ? "…" : String(stats.won) },
+            { label: "Lost",         value: challengesLoading ? "…" : String(stats.lost) },
+            { label: "Win rate",     value: challengesLoading ? "…" : stats.winRate !== null ? `${stats.winRate}%` : "—" },
+            { label: "Total staked", value: challengesLoading ? "…" : stats.totalStaked > 0 ? `${stats.totalStaked.toFixed(3)} ETH` : "—" },
+            { label: "Net profit",   value: challengesLoading ? "…" : (stats.won > 0 || stats.lost > 0) ? `${stats.netProfit >= 0 ? "+" : ""}${stats.netProfit.toFixed(3)} ETH` : "—" },
           ].map(({ label, value }) => (
             <div key={label} className="col gap-2">
               <div className="eyebrow">{label}</div>

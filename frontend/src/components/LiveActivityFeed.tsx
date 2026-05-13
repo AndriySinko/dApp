@@ -1,31 +1,41 @@
 "use client";
 
 import { useActivityFeed } from "@/lib/hooks/useActivityFeed";
+import type { ActivityFeedItem } from "@/lib/hooks/useActivityFeed";
 
 function shortAddr(addr: string) {
     return `${addr.slice(0, 6)}…${addr.slice(-4)}`;
 }
 
-function activityLabel(type: string): string {
-    switch (type) {
-        case "ChallengeCreated": return "created a challenge";
-        case "BetFor":           return "bet FOR";
-        case "BetAgainst":       return "bet AGAINST";
-        case "Joined":           return "joined";
-        default:                 return type.toLowerCase();
-    }
-}
+const TYPE_COLOR: Record<ActivityFeedItem["activityType"], string> = {
+    Created:    "var(--acc)",
+    Joined:     "var(--text-2)",
+    BetFor:     "var(--win)",
+    BetAgainst: "var(--loss)",
+    Won:        "var(--win)",
+    Lost:       "var(--loss)",
+};
+
+const TYPE_LABEL: Record<ActivityFeedItem["activityType"], string> = {
+    Created:    "created a challenge",
+    Joined:     "joined",
+    BetFor:     "bet FOR",
+    BetAgainst: "bet AGAINST",
+    Won:        "won",
+    Lost:       "lost",
+};
 
 function timeAgo(date: Date): string {
     const secs = Math.floor((Date.now() - date.getTime()) / 1000);
-    if (secs < 60)   return `${secs}s ago`;
-    if (secs < 3600) return `${Math.floor(secs / 60)}m ago`;
+    if (secs < 60)    return `${secs}s ago`;
+    if (secs < 3600)  return `${Math.floor(secs / 60)}m ago`;
     if (secs < 86400) return `${Math.floor(secs / 3600)}h ago`;
     return `${Math.floor(secs / 86400)}d ago`;
 }
 
 export function LiveActivityFeed() {
     const { activities, isLoading } = useActivityFeed();
+    const visible = activities.slice(0, 10);
 
     if (isLoading) {
         return (
@@ -35,7 +45,7 @@ export function LiveActivityFeed() {
         );
     }
 
-    if (activities.length === 0) {
+    if (visible.length === 0) {
         return (
             <div className="card" style={{ padding: 32, textAlign: "center", color: "var(--text-4)" }}>
                 No activity yet.
@@ -45,12 +55,12 @@ export function LiveActivityFeed() {
 
     return (
         <div className="card" style={{ padding: 0, overflow: "hidden" }}>
-            {activities.map((a, i) => (
+            {visible.map((a, i) => (
                 <div
                     key={a.id}
                     style={{
                         padding: "14px 20px",
-                        borderBottom: i < activities.length - 1 ? "1px solid var(--line-soft)" : "none",
+                        borderBottom: i < visible.length - 1 ? "1px solid var(--line-soft)" : "none",
                         display: "flex",
                         justifyContent: "space-between",
                         alignItems: "center",
@@ -61,9 +71,19 @@ export function LiveActivityFeed() {
                         <span className="avatar" style={{ width: 28, height: 28 }} />
                         <span>
                             <span className="mono" style={{ color: "var(--acc)" }}>{shortAddr(a.user)}</span>
-                            {" "}{activityLabel(a.activityType)}
+                            {" "}
+                            <span style={{ color: TYPE_COLOR[a.activityType] }}>
+                                {TYPE_LABEL[a.activityType]}
+                            </span>
                             {a.amount > 0 && (
-                                <span className="muted"> · Ξ {a.amount.toFixed(3)}</span>
+                                <span style={{ color: TYPE_COLOR[a.activityType] === "var(--text-2)" ? "var(--text-3)" : TYPE_COLOR[a.activityType], marginLeft: 2 }}>
+                                    {" "}· {a.activityType === "Lost" ? "-" : ""}Ξ {a.amount.toFixed(3)}
+                                </span>
+                            )}
+                            {a.repDelta !== 0 && (
+                                <span style={{ color: "var(--text-3)", marginLeft: 4, fontSize: 11 }}>
+                                    · {a.repDelta > 0 ? "+" : ""}{a.repDelta} rep
+                                </span>
                             )}
                         </span>
                     </div>

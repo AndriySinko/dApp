@@ -29,6 +29,7 @@ export function useProtocolStats() {
         address: ADDRESSES.treasury,
         abi: TREASURY_ABI,
         functionName: "prizePool",
+        query: { refetchInterval: 15_000 },
     });
 
     useEffect(() => {
